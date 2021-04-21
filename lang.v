@@ -4,7 +4,11 @@ From iris.algebra Require Export ofe.
 From iris.program_logic Require Export language ectx_language ectxi_language.
 From iris.heap_lang Require Export locations.
 
-(* ChanLang *)
+Delimit Scope expr_scope with E.
+Delimit Scope val_scope with V.
+
+Module chan_lang.
+
 (******************************************************************)
 (** ** Syntax, machine state, and atomic reductions **)
 (******************************************************************)
@@ -293,10 +297,9 @@ Inductive ectx_item :=
   | InjLCtx
   | InjRCtx
   | CaseCtx (e1 : expr) (e2 : expr)
-  | SendLCtx (e : expr)
+  | SendLCtx (v : val)
   | SendRCtx (e : expr)
   | TryRecvCtx
-  | ForkCtx
   | AllocNLCtx (v2 : val)
   | AllocNRCtx (e1 : expr)
   | FreeCtx
@@ -324,10 +327,9 @@ Fixpoint fill_item (Ki : ectx_item) (e : expr) : expr :=
   | InjLCtx => InjL e
   | InjRCtx => InjR e
   | CaseCtx e1 e2 => Case e e1 e2
-  | SendLCtx e1 => Send e1 e
+  | SendLCtx e1 => Send (Val e1) e
   | SendRCtx e1 => Send e e1
   | TryRecvCtx => TryRecv e
-  | ForkCtx => Fork e
   | AllocNLCtx v2 => AllocN e (Val v2)
   | AllocNRCtx e1 => AllocN e1 e
   | FreeCtx => Free e
@@ -545,13 +547,15 @@ Proof. destruct 1; naive_solver. Qed.
 
 Lemma head_ctx_step_val Ki e σ1 κ e2 σ2 efs :
   head_step (fill_item Ki e) σ1 κ e2 σ2 efs → is_Some (to_val e).
-Proof. revert κ e2. induction Ki; inversion_clear 1; simplify_option_eq; eauto. Qed.
+Proof.
+  revert κ e2. induction Ki; inversion_clear 1; simplify_option_eq; eauto.
+Qed.
 
 Lemma fill_item_no_val_inj Ki1 Ki2 e1 e2 :
   to_val e1 = None → to_val e2 = None →
   fill_item Ki1 e1 = fill_item Ki2 e2 → Ki1 = Ki2.
 Proof.
-  revert Ki1. induction Ki2; intros Ki1; induction Ki1; naive_solver eauto with f_equal.
+  revert Ki1. induction Ki2; intros Ki1; induction Ki1; try naive_solver eauto with f_equal.
 Qed.
 
 Lemma alloc_fresh v n σ :
@@ -571,20 +575,20 @@ Lemma new_proph_id_fresh σ :
   head_step NewProph σ [] (Val $ LitV $ LitProphecy p) (state_upd_used_proph_id ({[ p ]} ∪.) σ) [].
 Proof. constructor. apply is_fresh. Qed.
 
-Lemma heap_lang_mixin : EctxiLanguageMixin of_val to_val fill_item head_step.
+Lemma chan_lang_mixin : EctxiLanguageMixin of_val to_val fill_item head_step.
 Proof.
   split; apply _ || eauto using to_of_val, of_to_val, val_head_stuck,
     fill_item_val, fill_item_no_val_inj, head_ctx_step_val.
 Qed.
-End heap_lang.
+End chan_lang.
 
 (** Language *)
-Canonical Structure heap_ectxi_lang := EctxiLanguage heap_lang.heap_lang_mixin.
-Canonical Structure heap_ectx_lang := EctxLanguageOfEctxi heap_ectxi_lang.
-Canonical Structure heap_lang := LanguageOfEctx heap_ectx_lang.
+Canonical Structure chan_ectxi_lang := EctxiLanguage chan_lang.chan_lang_mixin.
+Canonical Structure chan_ectx_lang := EctxLanguageOfEctxi chan_ectxi_lang.
+Canonical Structure chan_lang := LanguageOfEctx chan_ectx_lang.
 
-(* Prefer heap_lang names over ectx_language names. *)
-Export heap_lang.
+(* Prefer chan_lang names over ectx_language names. *)
+Export chan_lang.
 
 (** The following lemma is not provable using the axioms of [ectxi_language].
 The proof requires a case analysis over context items ([destruct i] on the
