@@ -17,6 +17,8 @@ Linearizability: appear to happen atomically
 buffer operations are logically atomic buffer => L.A. ref
 channel : send/add channel
 
+Write a logically atomic specification (see flatcombiner example?)
+
 ## References
 * Iris from the Ground Up
 * Iris 1.0 : logical atomicity
