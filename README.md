@@ -1,5 +1,7 @@
-# iris-case-study
-Iris case study
+# chan-iris
+Iris case study. A modification of ChanLang, a message passing calculus instantiated with iris.
+There is a logically atomic heap specified which can store channels.
+(WIP)
 
 (See notes p.19-20)
 ## Specification
