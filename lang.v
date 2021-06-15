@@ -39,15 +39,15 @@ Inductive expr :=
   | TryRecv (e : expr)
   | Fork (e : expr)
   (* Prophecy *)
-  | NewProph
-  | Resolve (e0 : expr) (e1 : expr) (e2 : expr) (* wrapped expr, proph, val *)
+  (* | NewProph *)
+  (* | Resolve (e0 : expr) (e1 : expr) (e2 : expr) (* wrapped expr, proph, val *) *)
   (* Heap *)
-  | AllocN (e1 e2 : expr) (* array length (positive number), initial value *)
-  | Free (e : expr)
-  | Load (e : expr)
-  | Store (e1 : expr) (e2 : expr)
-  | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *)
-  | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *)
+  (* | AllocN (e1 e2 : expr) (* array length (positive number), initial value *) *)
+  (* | Free (e : expr) *)
+  (* | Load (e : expr) *)
+  (* | Store (e1 : expr) (e2 : exp) *)
+  (* | CmpXchg (e0 : expr) (e1 : expr) (e2 : expr) (* Compare-exchange *) *)
+  (* | FAA (e1 : expr) (e2 : expr) (* Fetch-and-add *) *)
 with val :=
   | LitV (v : base_lit)
   | RecV (f x : binder) (e : expr)
@@ -133,20 +133,20 @@ Proof.
      | Send e1 e2, Send e1' e2' => cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
      | TryRecv e, TryRecv e' => cast_if (decide (e = e'))
      | NewCh, NewCh => left _
-     | NewProph, NewProph => left _
-     | Resolve e0 e1 e2, Resolve e0' e1' e2' =>
-        cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
-     | AllocN e1 e2, AllocN e1' e2' =>
-        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | Free e, Free e' =>
-        cast_if (decide (e = e'))
-     | Load e, Load e' => cast_if (decide (e = e'))
-     | Store e1 e2, Store e1' e2' =>
-        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
-     | CmpXchg e0 e1 e2, CmpXchg e0' e1' e2' =>
-        cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2'))
-     | FAA e1 e2, FAA e1' e2' =>
-        cast_if_and (decide (e1 = e1')) (decide (e2 = e2'))
+     (* | NewProph, NewProph => left _ *)
+     (* | Resolve e0 e1 e2, Resolve e0' e1' e2' => *)
+     (*    cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2')) *)
+     (* | AllocN e1 e2, AllocN e1' e2' => *)
+     (*    cast_if_and (decide (e1 = e1')) (decide (e2 = e2')) *)
+     (* | Free e, Free e' => *)
+     (*    cast_if (decide (e = e')) *)
+     (* | Load e, Load e' => cast_if (decide (e = e')) *)
+     (* | Store e1 e2, Store e1' e2' => *)
+     (*    cast_if_and (decide (e1 = e1')) (decide (e2 = e2')) *)
+     (* | CmpXchg e0 e1 e2, CmpXchg e0' e1' e2' => *)
+     (*    cast_if_and3 (decide (e0 = e0')) (decide (e1 = e1')) (decide (e2 = e2')) *)
+     (* | FAA e1 e2, FAA e1' e2' => *)
+     (*    cast_if_and (decide (e1 = e1')) (decide (e2 = e2')) *)
 
      | _, _ => right _
      end
@@ -201,14 +201,14 @@ Proof.
      | InjR e => GenNode 10 [go e]
      | Case e0 e1 e2 => GenNode 11 [go e0; go e1; go e2]
      | Fork e => GenNode 12 [go e]
-     | AllocN e1 e2 => GenNode 13 [go e1; go e2]
-     | Free e => GenNode 14 [go e]
-     | Load e => GenNode 15 [go e]
-     | Store e1 e2 => GenNode 16 [go e1; go e2]
-     | CmpXchg e0 e1 e2 => GenNode 17 [go e0; go e1; go e2]
-     | FAA e1 e2 => GenNode 18 [go e1; go e2]
-     | NewProph => GenNode 19 []
-     | Resolve e0 e1 e2 => GenNode 20 [go e0; go e1; go e2]
+     (* | AllocN e1 e2 => GenNode 13 [go e1; go e2] *)
+     (* | Free e => GenNode 14 [go e] *)
+     (* | Load e => GenNode 15 [go e] *)
+     (* | Store e1 e2 => GenNode 16 [go e1; go e2] *)
+     (* | CmpXchg e0 e1 e2 => GenNode 17 [go e0; go e1; go e2] *)
+     (* | FAA e1 e2 => GenNode 18 [go e1; go e2] *)
+     (* | NewProph => GenNode 19 [] *)
+     (* | Resolve e0 e1 e2 => GenNode 20 [go e0; go e1; go e2] *)
      | NewCh => GenNode 21 []
      | Send e1 e2 => GenNode 22 [go e1; go e2]
      | TryRecv e => GenNode 23 [go e]
@@ -237,14 +237,14 @@ Proof.
      | GenNode 10 [e] => InjR (go e)
      | GenNode 11 [e0; e1; e2] => Case (go e0) (go e1) (go e2)
      | GenNode 12 [e] => Fork (go e)
-     | GenNode 13 [e1; e2] => AllocN (go e1) (go e2)
-     | GenNode 14 [e] => Free (go e)
-     | GenNode 15 [e] => Load (go e)
-     | GenNode 16 [e1; e2] => Store (go e1) (go e2)
-     | GenNode 17 [e0; e1; e2] => CmpXchg (go e0) (go e1) (go e2)
-     | GenNode 18 [e1; e2] => FAA (go e1) (go e2)
-     | GenNode 19 [] => NewProph
-     | GenNode 20 [e0; e1; e2] => Resolve (go e0) (go e1) (go e2)
+     (* | GenNode 13 [e1; e2] => AllocN (go e1) (go e2) *)
+     (* | GenNode 14 [e] => Free (go e) *)
+     (* | GenNode 15 [e] => Load (go e) *)
+     (* | GenNode 16 [e1; e2] => Store (go e1) (go e2) *)
+     (* | GenNode 17 [e0; e1; e2] => CmpXchg (go e0) (go e1) (go e2) *)
+     (* | GenNode 18 [e1; e2] => FAA (go e1) (go e2) *)
+     (* | GenNode 19 [] => NewProph *)
+     (* | GenNode 20 [e0; e1; e2] => Resolve (go e0) (go e1) (go e2) *)
      | GenNode 21 [] => NewCh
      | GenNode 22 [e1; e2] => Send (go e1) (go e2)
      | GenNode 23 [e] => TryRecv (go e)
@@ -262,7 +262,7 @@ Proof.
    for go).
  refine (inj_countable' enc dec _).
  refine (fix go (e : expr) {struct e} := _ with gov (v : val) {struct v} := _ for go).
- - destruct e as [v| | | | | | | | | | | | | | | | | | | | |]; simpl; f_equal;
+ - destruct e as [v| | | | | | | | | | | | |]; simpl; f_equal;
      [exact (gov v)|done..].
  - destruct v; by f_equal.
 Qed.
@@ -299,21 +299,21 @@ Inductive ectx_item :=
   | CaseCtx (e1 : expr) (e2 : expr)
   | SendLCtx (v : val)
   | SendRCtx (e : expr)
-  | TryRecvCtx
-  | AllocNLCtx (v2 : val)
-  | AllocNRCtx (e1 : expr)
-  | FreeCtx
-  | LoadCtx
-  | StoreLCtx (v2 : val)
-  | StoreRCtx (e1 : expr)
-  | CmpXchgLCtx (v1 : val) (v2 : val)
-  | CmpXchgMCtx (e0 : expr) (v2 : val)
-  | CmpXchgRCtx (e0 : expr) (e1 : expr)
-  | FaaLCtx (v2 : val)
-  | FaaRCtx (e1 : expr)
-  | ResolveLCtx (ctx : ectx_item) (v1 : val) (v2 : val)
-  | ResolveMCtx (e0 : expr) (v2 : val)
-  | ResolveRCtx (e0 : expr) (e1 : expr).
+  | TryRecvCtx.
+  (* | AllocNLCtx (v2 : val) *)
+  (* | AllocNRCtx (e1 : expr) *)
+  (* | FreeCtx *)
+  (* | LoadCtx *)
+  (* | StoreLCtx (v2 : val) *)
+  (* | StoreRCtx (e1 : expr) *)
+  (* | CmpXchgLCtx (v1 : val) (v2 : val) *)
+  (* | CmpXchgMCtx (e0 : expr) (v2 : val) *)
+  (* | CmpXchgRCtx (e0 : expr) (e1 : expr) *)
+  (* | FaaLCtx (v2 : val) *)
+  (* | FaaRCtx (e1 : expr) *)
+  (* | ResolveLCtx (ctx : ectx_item) (v1 : val) (v2 : val) *)
+  (* | ResolveMCtx (e0 : expr) (v2 : val) *)
+  (* | ResolveRCtx (e0 : expr) (e1 : expr). *)
 
 
 Fixpoint fill_item (Ki : ectx_item) (e : expr) : expr :=
@@ -330,26 +330,27 @@ Fixpoint fill_item (Ki : ectx_item) (e : expr) : expr :=
   | SendLCtx e1 => Send (Val e1) e
   | SendRCtx e1 => Send e e1
   | TryRecvCtx => TryRecv e
-  | AllocNLCtx v2 => AllocN e (Val v2)
-  | AllocNRCtx e1 => AllocN e1 e
-  | FreeCtx => Free e
-  | LoadCtx => Load e
-  | StoreLCtx v2 => Store e (Val v2)
-  | StoreRCtx e1 => Store e1 e
-  | CmpXchgLCtx v1 v2 => CmpXchg e (Val v1) (Val v2)
-  | CmpXchgMCtx e0 v2 => CmpXchg e0 e (Val v2)
-  | CmpXchgRCtx e0 e1 => CmpXchg e0 e1 e
-  | FaaLCtx v2 => FAA e (Val v2)
-  | FaaRCtx e1 => FAA e1 e
-  | ResolveLCtx K v1 v2 => Resolve (fill_item K e) (Val v1) (Val v2)
-  | ResolveMCtx ex v2 => Resolve ex e (Val v2)
-  | ResolveRCtx ex e1 => Resolve ex e1 e
+  (* | AllocNLCtx v2 => AllocN e (Val v2) *)
+  (* | AllocNRCtx e1 => AllocN e1 e *)
+  (* | FreeCtx => Free e *)
+  (* | LoadCtx => Load e *)
+  (* | StoreLCtx v2 => Store e (Val v2) *)
+  (* | StoreRCtx e1 => Store e1 e *)
+  (* | CmpXchgLCtx v1 v2 => CmpXchg e (Val v1) (Val v2) *)
+  (* | CmpXchgMCtx e0 v2 => CmpXchg e0 e (Val v2) *)
+  (* | CmpXchgRCtx e0 e1 => CmpXchg e0 e1 e *)
+  (* | FaaLCtx v2 => FAA e (Val v2) *)
+  (* | FaaRCtx e1 => FAA e1 e *)
+  (* | ResolveLCtx K v1 v2 => Resolve (fill_item K e) (Val v1) (Val v2) *)
+  (* | ResolveMCtx ex v2 => Resolve ex e (Val v2) *)
+  (* | ResolveRCtx ex e1 => Resolve ex e1 e *)
   end.
 
 (** Substitution *)
 Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   match e with
-  | Val _ | NewCh | NewProph => e
+  | Val _ | NewCh => e
+  (* | NewProph => e *)
   | Var y => if decide (x = y) then Val v else Var y
   | Rec f y e =>
      Rec f y $ if decide (BNamed x ≠ f ∧ BNamed x ≠ y) then subst x v e else e
@@ -363,13 +364,13 @@ Fixpoint subst (x : string) (v : val) (e : expr)  : expr :=
   | Fork e => Fork (subst x v e)
   | Send e1 e2 => Send (subst x v e1) (subst x v e2)
   | TryRecv e => TryRecv (subst x v e)
-  | AllocN e1 e2 => AllocN (subst x v e1) (subst x v e2)
-  | Free e => Free (subst x v e)
-  | Load e => Load (subst x v e)
-  | Store e1 e2 => Store (subst x v e1) (subst x v e2)
-  | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2)
-  | FAA e1 e2 => FAA (subst x v e1) (subst x v e2)
-  | Resolve ex e1 e2 => Resolve (subst x v ex) (subst x v e1) (subst x v e2)
+  (* | AllocN e1 e2 => AllocN (subst x v e1) (subst x v e2) *)
+  (* | Free e => Free (subst x v e) *)
+  (* | Load e => Load (subst x v e) *)
+  (* | Store e1 e2 => Store (subst x v e1) (subst x v e2) *)
+  (* | CmpXchg e0 e1 e2 => CmpXchg (subst x v e0) (subst x v e1) (subst x v e2) *)
+  (* | FAA e1 e2 => FAA (subst x v e1) (subst x v e2) *)
+  (* | Resolve ex e1 e2 => Resolve (subst x v ex) (subst x v e1) (subst x v e2) *)
   end.
 
 Definition subst' (mx : binder) (v : val) : expr → expr :=
@@ -463,53 +464,53 @@ Inductive head_step : expr → state → list observation → expr → state →
      head_step (Case (Val $ InjRV v) e1 e2) σ [] (App e2 (Val v)) σ []
   | ForkS e σ:
       head_step (Fork e) σ [] (Val $ LitV LitUnit) σ [e]
-  | AllocNS n v σ l :
-     (0 < n)%Z →
-     (∀ i, (0 ≤ i)%Z → (i < n)%Z → σ.(heap) !! (l +ₗ i) = None) →
-     head_step (AllocN (Val $ LitV $ LitInt n) (Val v)) σ
-               []
-               (Val $ LitV $ LitLoc l) (state_init_heap l n v σ)
-               []
-  | FreeS l v σ :
-     σ.(heap) !! l = Some $ Some v →
-     head_step (Free (Val $ LitV $ LitLoc l)) σ
-               []
-               (Val $ LitV LitUnit) (state_upd_heap <[l:=None]> σ)
-               []
-  | LoadS l v σ :
-     σ.(heap) !! l = Some $ Some v →
-     head_step (Load (Val $ LitV $ LitLoc l)) σ [] (of_val v) σ []
-  | StoreS l v w σ :
-     σ.(heap) !! l = Some $ Some v →
-     head_step (Store (Val $ LitV $ LitLoc l) (Val w)) σ
-               []
-               (Val $ LitV LitUnit) (state_upd_heap <[l:=Some w]> σ)
-               []
-  | CmpXchgS l v1 v2 vl σ b :
-     σ.(heap) !! l = Some $ Some vl →
-     (* Crucially, this compares the same way as [EqOp]! *)
-     vals_compare_safe vl v1 →
-     b = bool_decide (vl = v1) →
-     head_step (CmpXchg (Val $ LitV $ LitLoc l) (Val v1) (Val v2)) σ
-               []
-               (Val $ PairV vl (LitV $ LitBool b)) (if b then state_upd_heap <[l:=Some v2]> σ else σ)
-               []
-  | FaaS l i1 i2 σ :
-     σ.(heap) !! l = Some $ Some (LitV (LitInt i1)) →
-     head_step (FAA (Val $ LitV $ LitLoc l) (Val $ LitV $ LitInt i2)) σ
-               []
-               (Val $ LitV $ LitInt i1) (state_upd_heap <[l:=Some $ LitV (LitInt (i1 + i2))]>σ)
-               []
-  | NewProphS σ p :
-     p ∉ σ.(used_proph_id) →
-     head_step NewProph σ
-               []
-               (Val $ LitV $ LitProphecy p) (state_upd_used_proph_id ({[ p ]} ∪.) σ)
-               []
-  | ResolveS p v e σ w σ' κs ts :
-     head_step e σ κs (Val v) σ' ts →
-     head_step (Resolve e (Val $ LitV $ LitProphecy p) (Val w)) σ
-               (κs ++ [(p, (v, w))]) (Val v) σ' ts
+  (* | AllocNS n v σ l : *)
+  (*    (0 < n)%Z → *)
+  (*    (∀ i, (0 ≤ i)%Z → (i < n)%Z → σ.(heap) !! (l +ₗ i) = None) → *)
+  (*    head_step (AllocN (Val $ LitV $ LitInt n) (Val v)) σ *)
+  (*              [] *)
+  (*              (Val $ LitV $ LitLoc l) (state_init_heap l n v σ) *)
+  (*              [] *)
+  (* | FreeS l v σ : *)
+  (*    σ.(heap) !! l = Some $ Some v → *)
+  (*    head_step (Free (Val $ LitV $ LitLoc l)) σ *)
+  (*              [] *)
+  (*              (Val $ LitV LitUnit) (state_upd_heap <[l:=None]> σ) *)
+  (*              [] *)
+  (* | LoadS l v σ : *)
+  (*    σ.(heap) !! l = Some $ Some v → *)
+  (*    head_step (Load (Val $ LitV $ LitLoc l)) σ [] (of_val v) σ [] *)
+  (* | StoreS l v w σ : *)
+  (*    σ.(heap) !! l = Some $ Some v → *)
+  (*    head_step (Store (Val $ LitV $ LitLoc l) (Val w)) σ *)
+  (*              [] *)
+  (*              (Val $ LitV LitUnit) (state_upd_heap <[l:=Some w]> σ) *)
+  (*              [] *)
+  (* | CmpXchgS l v1 v2 vl σ b : *)
+  (*    σ.(heap) !! l = Some $ Some vl → *)
+  (*    (* Crucially, this compares the same way as [EqOp]! *) *)
+  (*    vals_compare_safe vl v1 → *)
+  (*    b = bool_decide (vl = v1) → *)
+  (*    head_step (CmpXchg (Val $ LitV $ LitLoc l) (Val v1) (Val v2)) σ *)
+  (*              [] *)
+  (*              (Val $ PairV vl (LitV $ LitBool b)) (if b then state_upd_heap <[l:=Some v2]> σ else σ) *)
+  (*              [] *)
+  (* | FaaS l i1 i2 σ : *)
+  (*    σ.(heap) !! l = Some $ Some (LitV (LitInt i1)) → *)
+  (*    head_step (FAA (Val $ LitV $ LitLoc l) (Val $ LitV $ LitInt i2)) σ *)
+  (*              [] *)
+  (*              (Val $ LitV $ LitInt i1) (state_upd_heap <[l:=Some $ LitV (LitInt (i1 + i2))]>σ) *)
+  (*              [] *)
+  (* | NewProphS σ p : *)
+  (*    p ∉ σ.(used_proph_id) → *)
+  (*    head_step NewProph σ *)
+  (*              [] *)
+  (*              (Val $ LitV $ LitProphecy p) (state_upd_used_proph_id ({[ p ]} ∪.) σ) *)
+  (*              [] *)
+  (* | ResolveS p v e σ w σ' κs ts : *)
+  (*    head_step e σ κs (Val v) σ' ts → *)
+  (*    head_step (Resolve e (Val $ LitV $ LitProphecy p) (Val w)) σ *)
+  (*              (κs ++ [(p, (v, w))]) (Val v) σ' ts *)
   (* Message-passing *)
   | NewChS σ c:
       σ.(chan) !! c = Some $ None ->
@@ -558,23 +559,6 @@ Proof.
   revert Ki1. induction Ki2; intros Ki1; induction Ki1; try naive_solver eauto with f_equal.
 Qed.
 
-Lemma alloc_fresh v n σ :
-  let l := fresh_locs (dom (gset loc) σ.(heap)) in
-  (0 < n)%Z →
-  head_step (AllocN ((Val $ LitV $ LitInt $ n)) (Val v)) σ []
-            (Val $ LitV $ LitLoc l) (state_init_heap l n v σ) [].
-Proof.
-  intros.
-  apply AllocNS; first done.
-  intros. apply (not_elem_of_dom (D := gset loc)).
-  by apply fresh_locs_fresh.
-Qed.
-
-Lemma new_proph_id_fresh σ :
-  let p := fresh σ.(used_proph_id) in
-  head_step NewProph σ [] (Val $ LitV $ LitProphecy p) (state_upd_used_proph_id ({[ p ]} ∪.) σ) [].
-Proof. constructor. apply is_fresh. Qed.
-
 Lemma chan_lang_mixin : EctxiLanguageMixin of_val to_val fill_item head_step.
 Proof.
   split; apply _ || eauto using to_of_val, of_to_val, val_head_stuck,
@@ -621,19 +605,3 @@ Lemma head_step_to_val e1 σ1 κ e2 σ2 efs σ1' κ' e2' σ2' efs' :
   head_step e1 σ1 κ e2 σ2 efs →
   head_step e1 σ1' κ' e2' σ2' efs' → is_Some (to_val e2) → is_Some (to_val e2').
 Proof. destruct 1; inversion 1; naive_solver. Qed.
-
-Lemma irreducible_resolve e v1 v2 σ :
-  irreducible e σ → irreducible (Resolve e (Val v1) (Val v2)) σ.
-Proof.
-  intros H κs ? σ' efs [Ks e1' e2' Hfill -> step]. simpl in *.
-  induction Ks as [|K Ks _] using rev_ind; simpl in Hfill.
-  - subst e1'. inversion step. eapply H. by apply head_prim_step.
-  - rewrite fill_app /= in Hfill.
-    destruct K; (inversion Hfill; subst; clear Hfill; try
-      match goal with | H : Val ?v = fill Ks ?e |- _ =>
-        (assert (to_val (fill Ks e) = Some v) as HEq by rewrite -H //);
-        apply to_val_fill_some in HEq; destruct HEq as [-> ->]; inversion step
-      end).
-    eapply (H κs (fill_item _ (foldl (flip fill_item) e2' Ks)) σ' efs).
-    eapply (Ectx_step (Ks ++ [_])); last done; simpl; by rewrite fill_app.
-Qed.
