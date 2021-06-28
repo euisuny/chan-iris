@@ -1,8 +1,8 @@
-From chanlang Require Import lang.
 From iris.program_logic Require Export weakestpre.
 From iris.proofmode Require Export tactics.
-From iris.heap_lang Require Import notation proofmode.
+From iris.heap_lang Require Import proofmode.
 
+From chanlang Require Import lang notation.
 
 Set Default Proof Using "Type".
 
@@ -14,7 +14,7 @@ Notation "'tryrecv' e" := (TryRecv e%E) (at level 10) : expr_scope.
 Definition recv : val :=
   rec: "loop" "c" :=
     let: "v" := "TryRecv" "c" in
-    match: !"v" with
+    match: "v" with
       NONE => "loop" "c"
     | SOME "m" => "m"
     end.
@@ -22,4 +22,16 @@ Definition recv : val :=
 (* In the language definitions, we had asynchronous channels.
   Here, we use invariant constructions to define _local channel assertions_. *)
 
+Section invariants.
 
+  Context `{LANG: irisG chan_lang Σ}.
+  Notation iProp := (iProp Σ).
+
+  Definition true : iProp := ⌜ True ⌝.
+
+  Lemma recv_spec c :
+    {{{ True }}} recv c {{{ RET #(); true }}}.
+  Proof.
+  Abort.
+
+End invariants.

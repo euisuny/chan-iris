@@ -1,4 +1,5 @@
 -Q . chanlang
 
 lang.v
-atomic.v
+notation.v
+localchan.v 
