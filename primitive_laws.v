@@ -8,7 +8,7 @@ From iris.base_logic.lib Require Import invariants.
 Class chanG Σ :=
   ChanG {
       chan_invG : invG Σ;
-      chan_gen_networkG :> gen_networkGS loc (option (gset val)) Σ;
+      chan_gen_networkG :> gen_networkGS loc (gset val) Σ;
     }.
 
 Global Instance chan_irisG `{!chanG Σ} : irisG chan_lang Σ :=
@@ -28,7 +28,7 @@ Section proof.
   Definition true : iProp := ⌜ True ⌝.
 
   Definition wp_newch :
-    {{{ true }}} newch {{{ l, RET LitV (LitLoc l); l ↦ Some ∅ }}}.
+    {{{ true }}} newch {{{ l, RET LitV (LitLoc l); l ↦ ∅ }}}.
   Proof.
     iIntros (Φ) "Pre Post".
     iApply wp_lift_atomic_head_step; [done|].
@@ -41,22 +41,39 @@ Section proof.
 
   Definition threadpool := gmap loc (option (gset val)).
 
-  (* Definition recv_inv v (P : iProp) (Q : threadpool -> chan_lang.val -> iProp) : iProp := *)
-  (*   (P ∗ ⌜v = NONE⌝ ∨ ∃ M m, Q M m ∗ ⌜v = SOMEV m⌝)%I. *)
+  Definition recv_inv v (P : iProp) (Q : threadpool -> chan_lang.val -> iProp)
+    : iProp :=
+    (P ∗ ⌜v = NONE⌝ ∨ ∃ M m, Q M m ∗ ⌜v = SOMEV m⌝)%I.
+  Hint Extern 0 (head_step _ _ _ _ _ _) => econstructor : head_step.
 
-  (* Definition is_recv P Q v := *)
-  (*   inv N (recv_inv v P Q). *)
+  Lemma tryrecv_None_chan (σ : state) (l: loc) :
+    chan σ !! l = Some ∅ ->
+    head_step (tryrecv l) σ [] None_ σ [].
+  Proof.
+    constructor. eauto.
+  Qed.
 
-  (* (* Section 7.2 Proof of blocking receive (10) *) *)
-  (* Lemma wp_tryrecv P (Q : threadpool -> chan_lang.val -> iProp) c : *)
-  (*   {{{ P }}} tryrecv c {{{ v , RET v; is_recv P Q v }}}. *)
-  (* Proof. *)
-  (*   iIntros (Φ) "P Q". *)
-  (*   iApply wp_lift_atomic_head_step; [done|]. *)
-  (*   iIntros (σ1 ns κ κs nt) "Hσ !>". iSplit. *)
-  (*   (* - first by euto with head_step. iMod "Q (tryrecv c)". *) *)
-  (*   (*   unfold head_reducible. iExists _, _, _, _. iSimpl. *) *)
-  (*   (*   iMod "Q".  as  "_". *) *)
-  (* Admitted. *)
+  Lemma tryrecv_some_chan (σ : state) (c: loc) M v :
+    chan σ !! c = Some (M ∪ {[v]})
+    → head_step (chan_lang.TryRecv #c) σ []
+        (Some_ v) (state_upd_chan <[c:=M]> σ) [].
+  Proof.
+    constructor. eauto.
+  Qed.
+
+  (* Section 7.2 Proof of blocking receive (10) *)
+  Lemma wp_tryrecv (l : loc) (dq : dfrac) (v' : gset chan_lang.val) :
+    {{{ l ↦{dq} v' }}} tryrecv l {{{ v, RET v; l ↦{dq} (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝}}}.
+  Proof.
+    iIntros (Φ) "Pre Post".
+    iApply wp_lift_atomic_head_step_no_fork; [done|].
+    iIntros (σ1 ns κ κs nt) "Hσ !>".
+    iDestruct (gen_network_valid with "Hσ Pre") as %?.
+    destruct v'. cbn in H.
+    iSplit.
+
+(* Hint Extern 0 (head_step _ _ _ _ _ _) => econstructor : head_step. *)
+(*     - eauto with head_step. *)
+  Admitted.
 
 End proof.
