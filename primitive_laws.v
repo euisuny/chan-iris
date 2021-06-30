@@ -39,13 +39,6 @@ Section proof.
     iApply "Hl".
   Qed.
 
-  Definition threadpool := gmap loc (option (gset val)).
-
-  Definition recv_inv v (P : iProp) (Q : threadpool -> chan_lang.val -> iProp)
-    : iProp :=
-    (P ∗ ⌜v = NONE⌝ ∨ ∃ M m, Q M m ∗ ⌜v = SOMEV m⌝)%I.
-  Hint Extern 0 (head_step _ _ _ _ _ _) => econstructor : head_step.
-
   Lemma tryrecv_None_chan (σ : state) (l: loc) :
     chan σ !! l = Some ∅ ->
     head_step (tryrecv l) σ [] None_ σ [].
@@ -63,17 +56,44 @@ Section proof.
 
   (* Section 7.2 Proof of blocking receive (10) *)
   Lemma wp_tryrecv (l : loc) (dq : dfrac) (v' : gset chan_lang.val) :
-    {{{ l ↦{dq} v' }}} tryrecv l {{{ v, RET v; l ↦{dq} (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝}}}.
+    {{{ l ↦{dq} v' }}}
+      tryrecv l
+      {{{ (x : chan_lang.expr), RET x;
+          (∃ v, ⌜x = SOME (SOMEV v)⌝ ∧ l ↦{dq} (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
+          (⌜x = NONE⌝ ∧ l ↦{dq} ∅)
+      }}}.
   Proof.
     iIntros (Φ) "Pre Post".
     iApply wp_lift_atomic_head_step_no_fork; [done|].
     iIntros (σ1 ns κ κs nt) "Hσ !>".
-    iDestruct (gen_network_valid with "Hσ Pre") as %?.
-    destruct v'. cbn in H.
-    iSplit.
+    iDestruct (gen_network_valid with "Hσ Pre") as %?. iSplit.
+    - assert (Decision (v' = ∅)).
+      { typeclasses eauto. }
+        destruct H0.
+      + iPureIntro. eexists _, _, _, _. cbn. econstructor.
+        rewrite H. rewrite e. reflexivity.
+      + iPureIntro.
+        assert (exists M v, v' = M ∪ {[v]}).
+        { unfold_leibniz. eapply set_choose in n. destruct n.
+          exists (v' ∖ {[x]}). exists x. eapply difference_union.
+          set_solver. }
+        destruct H0 as (? & ? & ?).
+        eexists _, _, _, _. cbn. eapply TryRecvSomeS. rewrite H.
+        rewrite H0. reflexivity.
+    - iNext. iIntros (v2 σ2 efs Hstep).
+      repeat match goal with
+              | _ => progress simplify_map_eq/= (* simplify memory stuff *)
+              | H : to_val _ = Some _ |- _ => apply of_to_val in H
+             end.
+      inversion Hstep; subst; cycle 1.
 
-(* Hint Extern 0 (head_step _ _ _ _ _ _) => econstructor : head_step. *)
-(*     - eauto with head_step. *)
   Admitted.
+
+
+  Definition threadpool := gmap loc (option (gset val)).
+
+  Definition recv_inv v (P : iProp) (Q : threadpool -> chan_lang.val -> iProp)
+    : iProp :=
+    (P ∗ ⌜v = NONE⌝ ∨ ∃ M m, Q M m ∗ ⌜v = SOMEV m⌝)%I.
 
 End proof.
