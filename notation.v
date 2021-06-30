@@ -125,3 +125,9 @@ Notation "'match:' e0 'with' 'NONE' => e1 | 'SOME' x => e2 'end'" :=
 Notation "'match:' e0 'with' 'SOME' x => e2 | 'NONE' => e1 'end'" :=
   (Match e0 BAnon e1 x%binder e2)
   (e0, e1, x, e2 at level 200, only parsing) : expr_scope.
+
+Notation TryRecv e := (TryRecv e) (only parsing).
+Notation "'tryrecv' e" := (TryRecv (LitV $ LitLoc e%E)) (at level 10) : expr_scope.
+
+Notation NewCh := (NewCh) (only parsing).
+Notation "'newch'" := (NewCh) (at level 10) : expr_scope.

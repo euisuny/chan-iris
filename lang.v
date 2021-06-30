@@ -12,11 +12,10 @@ Module chan_lang.
 (******************************************************************)
 (** ** Syntax, machine state, and atomic reductions **)
 (******************************************************************)
-Definition chan_id := positive.
 Definition proph_id := positive.
 
 Inductive base_lit : Set :=
-  | LitChan (c : chan_id) | LitInt (n : Z) | LitBool (b : bool) | LitUnit | LitProphecy (p: proph_id) | LitLoc (l : loc).
+  | LitInt (n : Z) | LitBool (b : bool) | LitUnit | LitProphecy (p: proph_id) | LitLoc (l : loc).
 
 Inductive expr :=
   (* Values *)
@@ -63,7 +62,7 @@ Definition lit_is_unboxed (l: base_lit) : Prop :=
   (** Disallow comparing (erased) prophecies with (erased) prophecies, by
   considering them boxed. *)
   | LitProphecy _ => False
-  | LitInt _ | LitBool _  | LitLoc _ | LitUnit | LitChan _ => True
+  | LitInt _ | LitBool _  | LitLoc _ | LitUnit => True
   end.
 Definition val_is_unboxed (v : val) : Prop :=
   match v with
@@ -150,15 +149,16 @@ Proof.
   | LitUnit => (inr (inl ()), None)
   | LitLoc l => (inr (inr l), None)
   | LitProphecy p => (inl (inr true), Some p)
-  | LitChan c => (inl (inr false), Some c)
+  (* | LitChan c => (inl (inr false), Some c) *)
   end) (λ l, match l with
   | (inl (inl n), None) => LitInt n
   | (inl (inr b), None) => LitBool b
   | (inr (inl ()), None) => LitUnit
-  | (inl (inr false), Some c) => LitChan c
+  (* | (inl (inr false), Some c) => LitChan c *)
   | (inr (inr l), None) => LitLoc l
   | (_, Some p) => LitProphecy p
-  end) _). intros []; intuition. destruct b; eauto.
+             end) _). intros []; intuition.
+  (* destruct b; eauto. *)
 Qed.
 Global Instance expr_countable : Countable expr.
 Proof.
@@ -238,7 +238,7 @@ Proof. refine (inj_countable of_val to_val _); auto using to_of_val. Qed.
 
 
 Record state : Type := {
-  chan: gmap chan_id (option (gset val));
+  chan: gmap loc (option (gset val));
 }.
 Global Instance state_inhabited : Inhabited state :=
   populate {|
@@ -309,7 +309,7 @@ Definition subst' (mx : binder) (v : val) : expr → expr :=
   match mx with BNamed x => subst x v | BAnon => id end.
 
 (** The stepping relation *)
-Definition state_upd_chan (f: gmap chan_id (option (gset val)) → gmap chan_id (option (gset val))) (σ: state) : state :=
+Definition state_upd_chan (f: gmap loc (option (gset val)) → gmap loc (option (gset val))) (σ: state) : state :=
   {| chan := f σ.(chan)|}.
 Global Arguments state_upd_chan !_ /.
 
@@ -380,24 +380,24 @@ Inductive head_step : expr → state → list observation → expr → state →
       head_step (Fork e) σ [] (Val $ LitV LitUnit) σ [e]
   (* Message-passing *)
   | NewChS σ c:
-      σ.(chan) !! c = Some $ None ->
+      σ.(chan) !! c = None ->
       head_step NewCh σ
                 []
-                (Val $ LitV $ LitChan c) (state_upd_chan <[c := Some $ empty]> σ)
+                (Val $ LitV $ LitLoc c) (state_upd_chan <[c := Some $ empty]> σ)
                 []
   | SendS σ M c v:
       σ.(chan) !! c = Some $ Some $ M ->
-      head_step (Send (Val $ LitV $ LitChan c) (Val v)) σ
+      head_step (Send (Val $ LitV $ LitLoc c) (Val v)) σ
                 []
                 (Val $ LitV LitUnit) (state_upd_chan <[c := Some $ M ∪ {[ v ]}]> σ)
                 []
   | TryRecvNoneS σ c:
       σ.(chan) !! c = Some $ Some $ empty ->
-      head_step (TryRecv (Val $ LitV $ LitChan c)) σ
+      head_step (TryRecv (Val $ LitV $ LitLoc c)) σ
                 [] None_ σ []
   | TryRecvSomeS σ c M v:
       σ.(chan) !! c = Some $ Some $ (M ∪ {[ v ]}) ->
-      head_step (TryRecv (Val $ LitV $ LitChan c)) σ
+      head_step (TryRecv (Val $ LitV $ LitLoc c)) σ
                 []
                 (Some_ v) (state_upd_chan <[c := Some M]> σ)
                 [].
@@ -472,3 +472,14 @@ Lemma head_step_to_val e1 σ1 κ e2 σ2 efs σ1' κ' e2' σ2' efs' :
   head_step e1 σ1 κ e2 σ2 efs →
   head_step e1 σ1' κ' e2' σ2' efs' → is_Some (to_val e2) → is_Some (to_val e2').
 Proof. destruct 1; inversion 1; naive_solver. Qed.
+
+Lemma alloc_newch σ :
+  let l := fresh_locs (dom (gset _) σ.(chan)) +ₗ 0 in
+  head_step NewCh σ []
+            (Val $ LitV $ LitLoc l) (state_upd_chan <[l := Some ∅]> σ) [].
+Proof.
+  intros.
+  eapply NewChS.
+  eapply (not_elem_of_dom (D := gset loc)).
+  by apply fresh_locs_fresh.
+Qed.
