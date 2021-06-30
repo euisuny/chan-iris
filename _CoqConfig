@@ -2,4 +2,6 @@
 
 lang.v
 notation.v
+network_ra.v
+primitive_laws.v
 localchan.v 

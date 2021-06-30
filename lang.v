@@ -237,14 +237,15 @@ Global Instance val_countable : Countable val.
 Proof. refine (inj_countable of_val to_val _); auto using to_of_val. Qed.
 
 
-(** The state: heaps of [option chan]s, with [None] representing deallocated locations. *)
 Record state : Type := {
-  heap: gmap loc (option val);
   chan: gmap chan_id (option (gset val));
-  used_proph_id: gset proph_id;
 }.
 Global Instance state_inhabited : Inhabited state :=
-  populate {| heap := inhabitant; chan := inhabitant; used_proph_id := inhabitant |}.
+  populate {|
+      (* heap := inhabitant; *)
+      chan := inhabitant;
+      (* used_proph_id := inhabitant *)
+    |}.
 Global Instance val_inhabited : Inhabited val := populate (LitV LitUnit).
 Global Instance expr_inhabited : Inhabited expr := populate (Val inhabitant).
 
@@ -308,16 +309,8 @@ Definition subst' (mx : binder) (v : val) : expr → expr :=
   match mx with BNamed x => subst x v | BAnon => id end.
 
 (** The stepping relation *)
-Definition state_upd_heap (f: gmap loc (option val) → gmap loc (option val)) (σ: state) : state :=
-  {| heap := f σ.(heap); used_proph_id := σ.(used_proph_id); chan := σ.(chan)|}.
-Global Arguments state_upd_heap _ !_ /.
-
-Definition state_upd_used_proph_id (f: gset proph_id → gset proph_id) (σ: state) : state :=
-  {| heap := σ.(heap); used_proph_id := f σ.(used_proph_id); chan := σ.(chan)|}.
-Global Arguments state_upd_used_proph_id _ !_ /.
-
 Definition state_upd_chan (f: gmap chan_id (option (gset val)) → gmap chan_id (option (gset val))) (σ: state) : state :=
-  {| heap := σ.(heap); used_proph_id := σ.(used_proph_id); chan := f σ.(chan)|}.
+  {| chan := f σ.(chan)|}.
 Global Arguments state_upd_chan !_ /.
 
 Fixpoint heap_array (l : loc) (vs : list val) : gmap loc (option val) :=
@@ -360,16 +353,6 @@ Proof.
 Qed.
 
 (* [h] is added on the right here to make [state_init_heap_singleton] true. *)
-Definition state_init_heap (l : loc) (n : Z) (v : val) (σ : state) : state :=
-  state_upd_heap (λ h, heap_array l (replicate (Z.to_nat n) v) ∪ h) σ.
-
-Lemma state_init_heap_singleton l v σ :
-  state_init_heap l 1 v σ = state_upd_heap <[l:=Some v]> σ.
-Proof.
-  destruct σ as [h p]. rewrite /state_init_heap /=. f_equiv.
-  rewrite right_id insert_union_singleton_l. done.
-Qed.
-
 Notation None_ := (InjL (Val $ LitV $ LitUnit)).
 Notation "'Some_'  e" := (InjR (Val $ e)) (at level 10).
 
