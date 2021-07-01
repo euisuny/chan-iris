@@ -86,6 +86,7 @@ Section proof.
       send(c, m)
     {{{ RET #(); c ↦ (M ∪ {[m]}) }}}.
   Proof.
+    Unset Printing Notations.
     iIntros (Φ) "Pre Post".
     iApply wp_lift_atomic_head_step_no_fork; [done|].
     iIntros (σ1 ns κ κs nt) "Hσ !>".
@@ -96,8 +97,5 @@ Section proof.
     iModIntro; iSplit=> //. iFrame.
     iApply "Post". done.
   Qed.
-
-
-  Definition threadpool := gmap loc (option (gset val)).
 
 End proof.

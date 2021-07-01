@@ -280,8 +280,8 @@ Fixpoint fill_item (Ki : ectx_item) (e : expr) : expr :=
   | InjLCtx => InjL e
   | InjRCtx => InjR e
   | CaseCtx e1 e2 => Case e e1 e2
-  | SendLCtx e1 => Send (Val e1) e
-  | SendRCtx e1 => Send e e1
+  | SendLCtx e1 => Send e (Val e1)
+  | SendRCtx e1 => Send e1 e
   | TryRecvCtx => TryRecv e
   end.
 
