@@ -128,6 +128,7 @@ Notation "'match:' e0 'with' 'SOME' x => e2 | 'NONE' => e1 'end'" :=
 
 Notation TryRecv e := (TryRecv e) (only parsing).
 Notation "'tryrecv' e" := (TryRecv (LitV $ LitLoc e%E)) (at level 10) : expr_scope.
-
 Notation NewCh := (NewCh) (only parsing).
 Notation "'newch'" := (NewCh) (at level 10) : expr_scope.
+Notation Send c m := (Send c m) (only parsing).
+Notation "'send' ( c , v )" := (Send (LitV $ LitLoc c%E) (Val $ v)) (at level 10) : expr_scope.

@@ -21,12 +21,14 @@ Global Instance chan_irisG `{!chanG Σ} : irisG chan_lang Σ :=
 }.
 
 Section proof.
+
   Context `{!chanG Σ}.
 
   Notation iProp := (iProp Σ).
 
   Definition true : iProp := ⌜ True ⌝.
 
+  (* Figure 11. Derived rules for language primitives *)
   Definition wp_newch :
     {{{ true }}} newch {{{ l, RET LitV (LitLoc l); l ↦ ∅ }}}.
   Proof.
@@ -40,7 +42,7 @@ Section proof.
   Qed.
 
   (* Section 7.2 Proof of blocking receive (10) *)
-  Lemma wp_tryrecv (l : loc)  (v' : gset chan_lang.val) :
+  Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) :
     {{{ l ↦ v' }}}
       tryrecv l
       {{{ (x : chan_lang.expr), RET x;
@@ -78,6 +80,23 @@ Section proof.
         assert (({[v]} ∪ M)∖{[v]} = M∖{[v]}) by set_solver.
         rewrite H1. iApply "Hl".
   Qed.
+
+  Lemma wp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) :
+    {{{ c ↦ M }}}
+      send(c, m)
+    {{{ RET #(); c ↦ (M ∪ {[m]}) }}}.
+  Proof.
+    iIntros (Φ) "Pre Post".
+    iApply wp_lift_atomic_head_step_no_fork; [done|].
+    iIntros (σ1 ns κ κs nt) "Hσ !>".
+    iDestruct (gen_network_valid with "Hσ Pre") as %?.
+    iSplit; first by eauto with head_step.
+    iIntros "!>" (v2 σ2 efs Hstep); inv_head_step.
+    iMod (gen_network_update _ _ _ (M ∪ {[m]}) with "Hσ Pre") as "[Hσ Hl]".
+    iModIntro; iSplit=> //. iFrame.
+    iApply "Post". done.
+  Qed.
+
 
   Definition threadpool := gmap loc (option (gset val)).
 
