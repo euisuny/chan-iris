@@ -39,28 +39,13 @@ Section proof.
     iApply "Hl".
   Qed.
 
-  Lemma tryrecv_None_chan (σ : state) (l: loc) :
-    chan σ !! l = Some ∅ ->
-    head_step (tryrecv l) σ [] None_ σ [].
-  Proof.
-    constructor. eauto.
-  Qed.
-
-  Lemma tryrecv_some_chan (σ : state) (c: loc) M v :
-    chan σ !! c = Some (M ∪ {[v]})
-    → head_step (chan_lang.TryRecv #c) σ []
-        (Some_ v) (state_upd_chan <[c:=M]> σ) [].
-  Proof.
-    constructor. eauto.
-  Qed.
-
   (* Section 7.2 Proof of blocking receive (10) *)
-  Lemma wp_tryrecv (l : loc) (dq : dfrac) (v' : gset chan_lang.val) :
-    {{{ l ↦{dq} v' }}}
+  Lemma wp_tryrecv (l : loc)  (v' : gset chan_lang.val) :
+    {{{ l ↦ v' }}}
       tryrecv l
       {{{ (x : chan_lang.expr), RET x;
-          (∃ v, ⌜x = SOME (SOMEV v)⌝ ∧ l ↦{dq} (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
-          (⌜x = NONE⌝ ∧ l ↦{dq} ∅)
+          (∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
+          (⌜x = NONEV⌝ ∧ l ↦ ∅)
       }}}.
   Proof.
     iIntros (Φ) "Pre Post".
@@ -75,25 +60,25 @@ Section proof.
       + iPureIntro.
         assert (exists M v, v' = M ∪ {[v]}).
         { unfold_leibniz. eapply set_choose in n. destruct n.
-          exists (v' ∖ {[x]}). exists x. eapply difference_union.
+          exists (v' ∖ {[x]}). exists x.
+          rewrite difference_union.
           set_solver. }
         destruct H0 as (? & ? & ?).
         eexists _, _, _, _. cbn. eapply TryRecvSomeS. rewrite H.
         rewrite H0. reflexivity.
-    - iNext. iIntros (v2 σ2 efs Hstep).
-      repeat match goal with
-              | _ => progress simplify_map_eq/= (* simplify memory stuff *)
-              | H : to_val _ = Some _ |- _ => apply of_to_val in H
-             end.
-      inversion Hstep; subst; cycle 1.
-
-  Admitted.
-
+    - iNext. iIntros (v2 σ2 efs Hstep); inv_head_step.
+      + iModIntro; iSplit=> //. iFrame.
+        iApply "Post". iRight. iSplit; done.
+      + iMod (gen_network_update _ _ _ (M∖{[v]}) with "Hσ Pre") as "[Hσ Hl]".
+        iModIntro; iSplit=> //. iFrame.
+        iApply "Post". iLeft. iExists v.
+        iSplit; first by done. iSplit; eauto with set_solver.
+        assert (M ∪ {[v]} = {[v]} ∪ M) by set_solver.
+        rewrite H0.
+        assert (({[v]} ∪ M)∖{[v]} = M∖{[v]}) by set_solver.
+        rewrite H1. iApply "Hl".
+  Qed.
 
   Definition threadpool := gmap loc (option (gset val)).
-
-  Definition recv_inv v (P : iProp) (Q : threadpool -> chan_lang.val -> iProp)
-    : iProp :=
-    (P ∗ ⌜v = NONE⌝ ∨ ∃ M m, Q M m ∗ ⌜v = SOMEV m⌝)%I.
 
 End proof.

@@ -353,8 +353,8 @@ Proof.
 Qed.
 
 (* [h] is added on the right here to make [state_init_heap_singleton] true. *)
-Notation None_ := (InjL (Val $ LitV $ LitUnit)).
-Notation "'Some_'  e" := (InjR (Val $ e)) (at level 10).
+Notation None_ := (Val $ InjLV $ LitV $ LitUnit).
+Notation "'Some_'  e" := (Val $ InjRV $ e) (at level 10).
 
 Inductive head_step : expr → state → list observation → expr → state → list expr → Prop :=
   | RecS f x e σ :
@@ -399,7 +399,7 @@ Inductive head_step : expr → state → list observation → expr → state →
       σ.(chan) !! c = Some $ (M ∪ {[ v ]}) ->
       head_step (TryRecv (Val $ LitV $ LitLoc c)) σ
                 []
-                (Some_ v) (state_upd_chan <[c := M]> σ)
+                (Some_ v) (state_upd_chan <[c := M∖{[v]}]> σ)
                 [].
 
 (** Basic properties about the language *)
