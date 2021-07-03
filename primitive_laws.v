@@ -29,8 +29,8 @@ Section proof.
   Definition true : iProp := ⌜ True ⌝.
 
   (* Figure 11. Derived rules for language primitives *)
-  Definition wp_newch :
-    {{{ true }}} newch {{{ l, RET LitV (LitLoc l); l ↦ ∅ }}}.
+  Definition wp_newch s E:
+    {{{ true }}} newch @ s; E {{{ l, RET LitV (LitLoc l); l ↦ ∅ }}}.
   Proof.
     iIntros (Φ) "Pre Post".
     iApply wp_lift_atomic_head_step; [done|].
@@ -42,9 +42,9 @@ Section proof.
   Qed.
 
   (* Section 7.2 Proof of blocking receive (10) *)
-  Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) :
+  Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) s E:
     {{{ l ↦ v' }}}
-      tryrecv l
+      tryrecv l @ s; E
       {{{ (x : chan_lang.expr), RET x;
           (∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
           (⌜x = NONEV⌝ ∧ l ↦ ∅)
@@ -81,12 +81,11 @@ Section proof.
         rewrite H1. iApply "Hl".
   Qed.
 
-  Lemma wp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) :
+  Lemma wp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) s E:
     {{{ c ↦ M }}}
-      send(c, m)
+      send(c, m) @ s; E
     {{{ RET #(); c ↦ (M ∪ {[m]}) }}}.
   Proof.
-    Unset Printing Notations.
     iIntros (Φ) "Pre Post".
     iApply wp_lift_atomic_head_step_no_fork; [done|].
     iIntros (σ1 ns κ κs nt) "Hσ !>".
