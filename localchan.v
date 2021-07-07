@@ -6,19 +6,11 @@ From iris.proofmode Require Export tactics.
 (* IY: What's the difference between [atomic] at [iris.program_logic]
  and [bi.lib]? *)
 From iris.bi Require Import atomic derived_laws interface.
+Import uPred.
 
 From chanlang Require Import
      class_instances lang notation network_ra tactics primitive_laws.
 Set Default Proof Using "Type".
-
-(* To start off, let's try defining a blocking receive. *)
-Definition recv : chan_lang.val :=
-  rec: "loop" "c" :=
-    let: "v" := "TryRecv" "c" in
-    match: "v" with
-      NONE => "loop" "c"
-    | SOME "m" => "m"
-    end.
 
 (* In the language definitions, we had asynchronous channels.
   Here, we use invariant constructions to define _local channel assertions_. *)
@@ -43,8 +35,7 @@ Section atomic_invariants.
   Global Instance send_atomic s c m : Atomic s (chan_lang.Send (Val c) (Val m)).
   Proof. solve_atomic. Qed.
 
-
-Notation "'val'" := chan_lang.val.
+  Notation "'val'" := chan_lang.val.
   Ltac reshape_expr e tac :=
     let rec go K vs e :=
       match e with
@@ -138,9 +129,6 @@ Notation "'val'" := chan_lang.val.
     rewrite -total_lifting.twp_pure_step //.
   Qed.
 
- From iris Require Import bi.interface.
- Import uPred.
-
   Lemma tac_wp_send
     Δ Δ' s E i K l m vl Φ :
     MaybeIntoLaterNEnvs 1 Δ Δ' →
@@ -179,7 +167,7 @@ Notation "'val'" := chan_lang.val.
     try wp_value_head;
     pm_prettify.
 
-  Lemma awp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) :
+  Lemma awp_send (c : loc) (M : gset val) (m : val) :
     ⊢ <<< c ↦ M >>> send(c, m) @ ⊤ <<< c ↦ (M ∪ {[m]}), RET #() >>>.
   Proof.
     iIntros (Φ) "AU".
@@ -194,6 +182,88 @@ Notation "'val'" := chan_lang.val.
     - pm_reduce; first [wp_finish].
       iMod ("Hclose" with "H↦") as "HΦ". done.
   Qed.
+
+  Tactic Notation "wp_pure" open_constr(efoc) :=
+    iStartProof;
+    lazymatch goal with
+    | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
+      let e := eval simpl in e in
+      reshape_expr e ltac:(fun K e' =>
+        unify e' efoc;
+        eapply (tac_wp_pure _ _ _ _ K e');
+        [iSolveTC                       (* PureExec *)
+        |
+        (* try solve_vals_compare_safe    (* The pure condition for PureExec -- *)
+          handles trivial goals, including [vals_compare_safe] *)
+        |iSolveTC                       (* IntoLaters *)
+        |wp_finish                      (* new goal *)
+        ])
+      || fail "wp_pure: cannot find" efoc "in" e "or" efoc "is not a redex"
+    | _ => fail "wp_pure: not a 'wp'"
+    end.
+
+  Lemma tac_wp_bind `{!chanG Σ} K Δ s E Φ e f :
+    f = (λ e, fill K e) → (* as an eta expanded hypothesis so that we can `simpl` it *)
+    envs_entails Δ (WP e @ s; E {{ v, WP f (Val v) @ s; E {{ Φ }} }})%I →
+    envs_entails Δ (WP fill K e @ s; E {{ Φ }}).
+  Proof. rewrite envs_entails_eq=> -> ->. by apply: wp_bind. Qed.
+  Lemma tac_twp_bind `{!chanG Σ} K Δ s E Φ e f :
+    f = (λ e, fill K e) → (* as an eta expanded hypothesis so that we can `simpl` it *)
+    envs_entails Δ (WP e @ s; E [{ v, WP f (Val v) @ s; E [{ Φ }] }])%I →
+    envs_entails Δ (WP fill K e @ s; E [{ Φ }]).
+  Proof. rewrite envs_entails_eq=> -> ->. by apply: twp_bind. Qed.
+
+  Ltac wp_bind_core K :=
+    lazymatch eval hnf in K with
+    | [] => idtac
+    | _ => eapply (tac_wp_bind K); [simpl; reflexivity|reduction.pm_prettify]
+    end.
+  Ltac twp_bind_core K :=
+    lazymatch eval hnf in K with
+    | [] => idtac
+    | _ => eapply (tac_twp_bind K); [simpl; reflexivity|reduction.pm_prettify]
+    end.
+
+
+  Tactic Notation "wp_bind" open_constr(efoc) :=
+    iStartProof;
+    lazymatch goal with
+    | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
+      first [ reshape_expr e ltac:(fun K e' => unify e' efoc; wp_bind_core K)
+            | fail 1 "wp_bind: cannot find" efoc "in" e ]
+    | |- envs_entails _ (twp ?s ?E ?e ?Q) =>
+      first [ reshape_expr e ltac:(fun K e' => unify e' efoc; twp_bind_core K)
+            | fail 1 "wp_bind: cannot find" efoc "in" e ]
+    | _ => fail "wp_bind: not a 'wp'"
+    end.
+
+
+  Tactic Notation "wp_rec" :=
+    let H := fresh in
+    assert (H := AsRecV_recv);
+    wp_pure (App _ _);
+    clear H.
+  Tactic Notation "wp_lam" := wp_rec; auto.
+
+  (* To start off, let's try defining a blocking receive. *)
+  Definition recv : chan_lang.val :=
+    rec: "loop" "c" :=
+      let: "v" := TryRecv "c" in
+      match: "v" with
+        NONE => "loop" "c"
+      | SOME "m" => "m"
+      end.
+
+  Lemma awp_recv (c : loc) (m : val):
+    ⊢ <<< ∀ (M : gset val), c ↦ M >>>
+        recv (LitV $ LitLoc $ c) @ ⊤
+      <<< c ↦ (M ∖ {[m]}) ∧ ⌜m ∈ M⌝, RET #() >>>.
+  Proof.
+    iIntros (Φ) "AU". iLöb as "IH". wp_lam.
+    wp_bind (tryrecv _)%E. iMod "AU" as (M) "[Hl [Hclose _]]".
+    (* iApply wp_tryrecv. *)
+    (* wp_recv. *)
+   Abort.
 
   (* TODO: After defining logical atomic spec to [tryrecv], look at
      [heap_lang.lib.atomic_heap] for atomic heap implementation. *)

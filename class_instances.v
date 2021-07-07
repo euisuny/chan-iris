@@ -34,6 +34,10 @@ Section atomic.
 
   Global Instance fork_atomic s e : Atomic s (Fork e).
   Proof. solve_atomic. Qed.
+
+  Global Instance tryrecv_atomic s v : Atomic s (TryRecv (Val v)).
+  Proof. solve_atomic. Qed.
+
 End atomic.
 
 Class AsRecV (v : val) (f x : binder) (erec : expr) :=
