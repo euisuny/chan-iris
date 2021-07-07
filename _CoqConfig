@@ -4,6 +4,7 @@ lang.v
 notation.v
 network_ra.v
 tactics.v
+proofmode.v
 class_instances.v
 primitive_laws.v
 localchan.v 
