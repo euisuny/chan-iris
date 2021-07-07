@@ -48,43 +48,28 @@ Section atomic_invariants.
       | SOME "m" => "m"
       end.
 
-  Lemma tac_wp_tryrecv Δ Δ' s E l K Φ v M i b q:
+  Lemma tac_wp_tryrecv Δ Δ' s E l K Φ v M i:
     MaybeIntoLaterNEnvs 1 Δ Δ' →
-    envs_lookup i Δ' = Some (b, l ↦{q} M)%I →
+    envs_lookup i Δ' = Some (false, l ↦ M)%I →
     match envs_simple_replace i false (Esnoc Enil i (l ↦ (M∖{[v]}))) Δ' with
-    | Some Δ'' => envs_entails Δ'' (WP fill K (SOMEV v) @ s; E {{ Φ }})
+    | Some Δ'' => v ∈ M -> envs_entails Δ'' (WP fill K (Val $ SOMEV v) @ s; E {{ Φ }})
     | None => False
     end ->
+    (v ∉ M -> envs_entails Δ' (WP fill K (Val $ NONEV) @ s; E {{ Φ }})) →
     envs_entails Δ (WP fill K (TryRecv (LitV $ LitLoc l)) @ s; E {{ Φ }}).
   Proof.
-    rewrite envs_entails_eq=> ?? Hi.
+    rewrite envs_entails_eq=> ?? Hsuc Hfail.
     destruct (envs_simple_replace _ _ _) as [Δ''|] eqn:HΔ''; [ | contradiction ].
-    rewrite -wp_bind. eapply wand_apply.
-    - pose proof @wp_tryrecv. specialize (H Σ chanG0 l M s E).
-      Unset Printing Notations.
-      specialize (H (fun x => wp s E (fill K (of_val x)) Φ)). WP fill K (of_val v0) @ s; E {{ v, Φ v }})).
-
-  rewrite -twp_bind. eapply wand_apply; first exact: twp_load.
-  rewrite envs_lookup_split //; simpl.
-  destruct b; simpl.
-  - iIntros "[#$ He]". iIntros "_". iApply Hi. iApply "He". iFrame "#".
-  - iIntros "[$ He]". iIntros "Hl". iApply Hi. iApply "He". iFrame "Hl".
-Qed.
-    rewrite into_laterN_env_sound -later_sep envs_lookup_split //; simpl.
-    apply later_mono.
-    destruct b; simpl.
-    * iIntros "[#$ He]". iIntros "_". iApply Hi. iApply "He". iFrame "#".
-    * by apply sep_mono_r, wand_mono.
-  Qed.
-
-  Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) s E:
-    {{{ l ↦ v' }}}
-      tryrecv l @ s; E
-      {{{ (x : chan_lang.expr), RET x;
-          (∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
-          (⌜x = NONEV⌝ ∧ l ↦ ∅)
-      }}}.
-  Proof.
+    destruct (decide (v ∈ M)) as [Heq|Hne].
+    - rewrite -wp_bind. eapply wand_apply.
+      { eapply wp_tryrecv; eauto. }
+      rewrite into_laterN_env_sound -later_sep /= {1}envs_simple_replace_sound //; simpl.
+      apply later_mono, sep_mono_r. rewrite right_id. apply forall_intro=>v'.
+      apply wand_mono; auto.
+      + match goal with
+        | |- context[bi_or ?P ?Q] => remember P; remember Q
+        end.
+  Admitted.
 
   Lemma awp_recv (c : loc) (m : val):
     ⊢ <<< ∀ (M : gset val), c ↦ M >>>
@@ -93,7 +78,7 @@ Qed.
   Proof.
     iIntros (Φ) "AU". iLöb as "IH". wp_lam.
     wp_bind (tryrecv _)%E. iMod "AU" as (M) "[Hl [Hclose _]]".
-    (* iApply wp_tryrecv. *)
+    (* iApply tac_wp_tryrecv. *)
     (* wp_recv. *)
    Abort.
 

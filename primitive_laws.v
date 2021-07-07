@@ -66,13 +66,12 @@ Section proof.
           rewrite difference_union.
           set_solver. }
         destruct H0 as (? & ? & ?).
-        eexists _, _, _. cbn. eapply TryRecvSomeS. rewrite H.
-        rewrite H0. reflexivity.
+        eexists _, _, _. cbn. rewrite H0 in H. eapply TryRecvSomeS; eauto.
     - iIntros (κ v2 σ2 efs Hstep); inv_head_step.
       + iModIntro; iSplit=> //. iFrame. iSplit.
         * iPureIntro; eauto.
         * iApply "Post". iRight. iSplit; done.
-      + iMod (gen_network_update _ _ _ (M∖{[v]}) with "Hσ Pre") as "[Hσ Hl]".
+      + iMod (gen_network_update with "Hσ Pre") as "[Hσ Hl]".
         iModIntro; iSplit=> //. iFrame. iSplit.
         * iPureIntro; eauto.
         * iApply "Post". iLeft. iExists v.
@@ -94,6 +93,16 @@ Section proof.
     iIntros (Φ) ">H HΦ". iApply (twp_wp_step with "HΦ").
     iApply (twp_tryrecv with "H") ; [by auto..|]. iIntros (x) "H HΦ". by iApply "HΦ".
   Qed.
+
+  Lemma twp_tryrecv_suc (l : loc) (v' : gset chan_lang.val) s E :
+    v' ≠ ∅ ->
+    [[{ l ↦ v'  }]]
+      tryrecv l @ s; E
+    [[{ v, RET SOMEV v; l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝ }]].
+  Proof.
+    iIntros ( neq Φ) "Pre Post". iApply twp_lift_atomic_head_step_no_fork; first done.
+    iIntros (σ1 ns κs nt) "Hσ !>". iDestruct (gen_network_valid with "Hσ Pre") as %?.
+  Abort.
 
   Lemma twp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) s E:
     [[{ c ↦ M }]] send(c, m) @ s; E
