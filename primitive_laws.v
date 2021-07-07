@@ -42,22 +42,22 @@ Section proof.
   Qed.
 
   (* Section 7.2 Proof of blocking receive (10) *)
-  Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) s E:
-    {{{ l ↦ v' }}}
+  Lemma twp_tryrecv (l : loc) (v' : gset chan_lang.val) s E :
+    [[{ l ↦ v' }]]
       tryrecv l @ s; E
-      {{{ (x : chan_lang.expr), RET x;
-          (∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
-          (⌜x = NONEV⌝ ∧ l ↦ ∅)
-      }}}.
+    [[{ x, RET x;
+        ((∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
+        (⌜x = NONEV⌝ ∧ l ↦ ∅))
+    }]].
   Proof.
     iIntros (Φ) "Pre Post".
-    iApply wp_lift_atomic_head_step_no_fork; [done|].
-    iIntros (σ1 ns κ κs nt) "Hσ !>".
+    iApply twp_lift_atomic_head_step_no_fork; first done.
+    iIntros (σ1 ns κs nt) "Hσ !>".
     iDestruct (gen_network_valid with "Hσ Pre") as %?. iSplit.
     - assert (Decision (v' = ∅)).
       { typeclasses eauto. }
         destruct H0.
-      + iPureIntro. eexists _, _, _, _. cbn. econstructor.
+      + iPureIntro. eexists _, _, _. cbn. econstructor.
         rewrite H. rewrite e. reflexivity.
       + iPureIntro.
         assert (exists M v, v' = M ∪ {[v]}).
@@ -66,19 +66,51 @@ Section proof.
           rewrite difference_union.
           set_solver. }
         destruct H0 as (? & ? & ?).
-        eexists _, _, _, _. cbn. eapply TryRecvSomeS. rewrite H.
+        eexists _, _, _. cbn. eapply TryRecvSomeS. rewrite H.
         rewrite H0. reflexivity.
-    - iNext. iIntros (v2 σ2 efs Hstep); inv_head_step.
-      + iModIntro; iSplit=> //. iFrame.
-        iApply "Post". iRight. iSplit; done.
+    - iIntros (κ v2 σ2 efs Hstep); inv_head_step.
+      + iModIntro; iSplit=> //. iFrame. iSplit.
+        * iPureIntro; eauto.
+        * iApply "Post". iRight. iSplit; done.
       + iMod (gen_network_update _ _ _ (M∖{[v]}) with "Hσ Pre") as "[Hσ Hl]".
-        iModIntro; iSplit=> //. iFrame.
-        iApply "Post". iLeft. iExists v.
-        iSplit; first by done. iSplit; eauto with set_solver.
-        assert (M ∪ {[v]} = {[v]} ∪ M) by set_solver.
-        rewrite H0.
-        assert (({[v]} ∪ M)∖{[v]} = M∖{[v]}) by set_solver.
-        rewrite H1. iApply "Hl".
+        iModIntro; iSplit=> //. iFrame. iSplit.
+        * iPureIntro; eauto.
+        * iApply "Post". iLeft. iExists v.
+          iSplit; first by done. iSplit; eauto with set_solver.
+          assert (M ∪ {[v]} = {[v]} ∪ M) by set_solver.
+          rewrite H0.
+          assert (({[v]} ∪ M)∖{[v]} = M∖{[v]}) by set_solver.
+          rewrite H1. iApply "Hl".
+  Qed.
+
+  Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) s E:
+    {{{ ▷ l ↦ v' }}}
+      tryrecv l @ s; E
+    {{{ x, RET x;
+        ((∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
+        (⌜x = NONEV⌝ ∧ l ↦ ∅))
+    }}}.
+  Proof.
+    iIntros (Φ) ">H HΦ". iApply (twp_wp_step with "HΦ").
+    (* IY: iApply doesn't immediately work... Why? *)
+    remember (bi_wand
+          (bi_forall
+             (fun x : expr =>
+              bi_wand
+                (bi_or
+                   (bi_exist
+                      (fun v0 : val =>
+                       bi_and (bi_pure (eq x (InjRV v0)))
+                         (bi_and (mapsto l (DfracOwn (pos_to_Qp xH)) (difference v' (singleton v0)))
+                            (bi_pure (elem_of v0 v')))))
+                   (bi_and (bi_pure (eq x (InjLV (LitV LitUnit)))) (mapsto l (DfracOwn (pos_to_Qp xH)) empty)))
+                (Φ x))) ).
+    epose twp_tryrecv.
+    specialize (b0 l v' s E).
+    specialize (b0 (fun x => b (fupd E E (Φ x)))). cbn in b0.
+    iApply (b0 with "H") ; [by auto..|].
+    subst.
+    iIntros (x) "H HΦ". by iApply "HΦ".
   Qed.
 
   Lemma twp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) s E:

@@ -21,8 +21,6 @@ Section atomic_invariants.
 
   Notation iProp := (iProp Σ).
 
-  (* IY: what is [tele]? Seems like some kind of telescoping thing... *)
-
   Notation "'val'" := chan_lang.val.
 
   Lemma awp_send (c : loc) (M : gset val) (m : val) :
@@ -49,6 +47,42 @@ Section atomic_invariants.
         NONE => "loop" "c"
       | SOME "m" => "m"
       end.
+
+  Lemma tac_wp_tryrecv `{!chanG Σ} Δ Δ' s E l K Φ v M i b q:
+    MaybeIntoLaterNEnvs 1 Δ Δ' →
+    envs_lookup i Δ' = Some (b, l ↦{q} M)%I →
+    match envs_simple_replace i false (Esnoc Enil i (l ↦ (M∖{[v]}))) Δ' with
+    | Some Δ'' => envs_entails Δ'' (WP fill K (SOMEV v) @ s; E {{ Φ }})
+    | None => False
+    end ->
+    envs_entails Δ (WP fill K (TryRecv (LitV $ LitLoc l)) @ s; E {{ Φ }}).
+  Proof.
+    rewrite envs_entails_eq=> ?? Hi.
+    destruct (envs_simple_replace _ _ _) as [Δ''|] eqn:HΔ''; [ | contradiction ].
+    rewrite -wp_bind. eapply wand_apply.
+    - apply wp_tryrecv.
+
+  rewrite -twp_bind. eapply wand_apply; first exact: twp_load.
+  rewrite envs_lookup_split //; simpl.
+  destruct b; simpl.
+  - iIntros "[#$ He]". iIntros "_". iApply Hi. iApply "He". iFrame "#".
+  - iIntros "[$ He]". iIntros "Hl". iApply Hi. iApply "He". iFrame "Hl".
+Qed.
+    rewrite into_laterN_env_sound -later_sep envs_lookup_split //; simpl.
+    apply later_mono.
+    destruct b; simpl.
+    * iIntros "[#$ He]". iIntros "_". iApply Hi. iApply "He". iFrame "#".
+    * by apply sep_mono_r, wand_mono.
+  Qed.
+
+  Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) s E:
+    {{{ l ↦ v' }}}
+      tryrecv l @ s; E
+      {{{ (x : chan_lang.expr), RET x;
+          (∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
+          (⌜x = NONEV⌝ ∧ l ↦ ∅)
+      }}}.
+  Proof.
 
   Lemma awp_recv (c : loc) (m : val):
     ⊢ <<< ∀ (M : gset val), c ↦ M >>>

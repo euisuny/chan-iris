@@ -190,7 +190,6 @@ Ltac twp_bind_core K :=
   | _ => eapply (tac_twp_bind K); [simpl; reflexivity|reduction.pm_prettify]
   end.
 
-
 Tactic Notation "wp_bind" open_constr(efoc) :=
   iStartProof;
   lazymatch goal with
