@@ -115,9 +115,9 @@ Notation "e1 ;; e2" := (Lam BAnon e2%E e1%E)
 
 (** Notations for option *)
 Notation NONE := (InjL (LitV LitUnit)) (only parsing).
-Notation NONEV := (Val $ InjLV (LitV LitUnit)) (only parsing).
+Notation NONEV := (InjLV (LitV LitUnit)) (only parsing).
 Notation SOME x := (InjR x) (only parsing).
-Notation SOMEV x := (Val $ InjRV x) (only parsing).
+Notation SOMEV x := (InjRV x) (only parsing).
 
 Notation "'match:' e0 'with' 'NONE' => e1 | 'SOME' x => e2 'end'" :=
   (Match e0 BAnon e1 x%binder e2)

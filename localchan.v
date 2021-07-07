@@ -48,7 +48,7 @@ Section atomic_invariants.
       | SOME "m" => "m"
       end.
 
-  Lemma tac_wp_tryrecv `{!chanG Σ} Δ Δ' s E l K Φ v M i b q:
+  Lemma tac_wp_tryrecv Δ Δ' s E l K Φ v M i b q:
     MaybeIntoLaterNEnvs 1 Δ Δ' →
     envs_lookup i Δ' = Some (b, l ↦{q} M)%I →
     match envs_simple_replace i false (Esnoc Enil i (l ↦ (M∖{[v]}))) Δ' with
@@ -60,7 +60,9 @@ Section atomic_invariants.
     rewrite envs_entails_eq=> ?? Hi.
     destruct (envs_simple_replace _ _ _) as [Δ''|] eqn:HΔ''; [ | contradiction ].
     rewrite -wp_bind. eapply wand_apply.
-    - apply wp_tryrecv.
+    - pose proof @wp_tryrecv. specialize (H Σ chanG0 l M s E).
+      Unset Printing Notations.
+      specialize (H (fun x => wp s E (fill K (of_val x)) Φ)). WP fill K (of_val v0) @ s; E {{ v, Φ v }})).
 
   rewrite -twp_bind. eapply wand_apply; first exact: twp_load.
   rewrite envs_lookup_split //; simpl.

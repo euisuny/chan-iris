@@ -45,7 +45,7 @@ Section proof.
   Lemma twp_tryrecv (l : loc) (v' : gset chan_lang.val) s E :
     [[{ l ↦ v' }]]
       tryrecv l @ s; E
-    [[{ x, RET x;
+    [[{ (x : val), RET x;
         ((∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
         (⌜x = NONEV⌝ ∧ l ↦ ∅))
     }]].
@@ -86,31 +86,13 @@ Section proof.
   Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) s E:
     {{{ ▷ l ↦ v' }}}
       tryrecv l @ s; E
-    {{{ x, RET x;
+    {{{ (x : val), RET x;
         ((∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
         (⌜x = NONEV⌝ ∧ l ↦ ∅))
     }}}.
   Proof.
     iIntros (Φ) ">H HΦ". iApply (twp_wp_step with "HΦ").
-    (* IY: iApply doesn't immediately work... Why? *)
-    remember (bi_wand
-          (bi_forall
-             (fun x : expr =>
-              bi_wand
-                (bi_or
-                   (bi_exist
-                      (fun v0 : val =>
-                       bi_and (bi_pure (eq x (InjRV v0)))
-                         (bi_and (mapsto l (DfracOwn (pos_to_Qp xH)) (difference v' (singleton v0)))
-                            (bi_pure (elem_of v0 v')))))
-                   (bi_and (bi_pure (eq x (InjLV (LitV LitUnit)))) (mapsto l (DfracOwn (pos_to_Qp xH)) empty)))
-                (Φ x))) ).
-    epose twp_tryrecv.
-    specialize (b0 l v' s E).
-    specialize (b0 (fun x => b (fupd E E (Φ x)))). cbn in b0.
-    iApply (b0 with "H") ; [by auto..|].
-    subst.
-    iIntros (x) "H HΦ". by iApply "HΦ".
+    iApply (twp_tryrecv with "H") ; [by auto..|]. iIntros (x) "H HΦ". by iApply "HΦ".
   Qed.
 
   Lemma twp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) s E:
