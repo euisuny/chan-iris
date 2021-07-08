@@ -60,13 +60,10 @@ Section proof.
       + iPureIntro. eexists _, _, _. cbn. econstructor.
         rewrite H. rewrite e. reflexivity.
       + iPureIntro.
-        assert (exists M v, v' = M ∪ {[v]}).
-        { unfold_leibniz. eapply set_choose in n. destruct n.
-          exists (v' ∖ {[x]}). exists x.
-          rewrite difference_union.
-          set_solver. }
-        destruct H0 as (? & ? & ?).
-        eexists _, _, _. cbn. rewrite H0 in H. eapply TryRecvSomeS; eauto.
+        assert (∃ x : val, x ∈ v').
+        { unfold_leibniz. eapply set_choose in n. eauto. }
+        destruct H0 as (? & ?).
+        eexists _, _, _. cbn. eapply TryRecvSomeS; eauto.
     - iIntros (κ v2 σ2 efs Hstep); inv_head_step.
       + iModIntro; iSplit=> //. iFrame. iSplit.
         * iPureIntro; eauto.
@@ -76,10 +73,6 @@ Section proof.
         * iPureIntro; eauto.
         * iApply "Post". iLeft. iExists v.
           iSplit; first by done. iSplit; eauto with set_solver.
-          assert (M ∪ {[v]} = {[v]} ∪ M) by set_solver.
-          rewrite H0.
-          assert (({[v]} ∪ M)∖{[v]} = M∖{[v]}) by set_solver.
-          rewrite H1. iApply "Hl".
   Qed.
 
   Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) s E:
@@ -100,17 +93,13 @@ Section proof.
       tryrecv l @ s; E
     [[{ v, RET SOMEV v; l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝ }]].
   Proof.
-    iIntros ( neq Φ) "Pre Post". iApply twp_lift_atomic_head_step_no_fork; first done.
+    iIntros (neq Φ) "Pre Post". iApply twp_lift_atomic_head_step_no_fork; first done.
     iIntros (σ1 ns κs nt) "Hσ !>". iDestruct (gen_network_valid with "Hσ Pre") as %?.
     iSplit.
     - iPureIntro.
-      assert (exists M v, v' = M ∪ {[v]}).
-      { unfold_leibniz. eapply set_choose in neq. destruct neq.
-        exists (v' ∖ {[x]}). exists x.
-        rewrite difference_union.
-        set_solver. }
-      destruct H0 as (? & ? & ?).
-      rewrite H0 in H. eauto.
+      assert (∃ x : val, x ∈ v').
+      { unfold_leibniz. eapply set_choose in neq. eauto. }
+      destruct H0 as (? & ?).
       eexists _, _, _. cbn.
       eapply TryRecvSomeS; eauto.
     - iIntros (κ v2 σ2 efs Hstep); inv_head_step.
@@ -119,9 +108,7 @@ Section proof.
       iFrame; eauto. iApply "Post".
       iSplit; cycle 1.
       + iPureIntro. set_solver.
-      + assert ((M ∪ {[v]})∖{[v]} = M ∖{[v]}).
-        { set_solver. }
-        rewrite H0. done.
+      + done.
   Qed.
 
   Lemma twp_tryrecv_fail (l : loc) (v' : gset chan_lang.val) s E :

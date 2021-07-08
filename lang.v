@@ -396,7 +396,8 @@ Inductive head_step : expr → state → list observation → expr → state →
       head_step (TryRecv (Val $ LitV $ LitLoc c)) σ
                 [] None_ σ []
   | TryRecvSomeS σ c M v:
-      σ.(chan) !! c = Some $ (M ∪ {[ v ]}) ->
+      v ∈ M ->
+      σ.(chan) !! c = Some $ M ->
       head_step (TryRecv (Val $ LitV $ LitLoc c)) σ
                 []
                 (Some_ v) (state_upd_chan <[c := M∖{[v]}]> σ)

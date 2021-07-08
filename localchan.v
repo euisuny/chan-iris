@@ -48,32 +48,55 @@ Section atomic_invariants.
       | SOME "m" => "m"
       end.
 
-  Lemma tac_wp_tryrecv Δ Δ' s E l K Φ v M i:
+  Lemma tac_wp_tryrecv Δ Δ' s E l K Φ M i:
     MaybeIntoLaterNEnvs 1 Δ Δ' →
     envs_lookup i Δ' = Some (false, l ↦ M)%I →
-    match envs_simple_replace i false (Esnoc Enil i (l ↦ (M∖{[v]}))) Δ' with
-    | Some Δ'' => envs_entails Δ'' (WP fill K (Val $ v) @ s; E {{ Φ }})
-    | None => False
-    end ->
+    (* This condition is very fishy. TODO *)
+    (forall v, M ≠ ∅ -> v ∈ M -> envs_entails Δ' (WP fill K (Val $ SOMEV v) @ s; E {{ Φ }})) ->
+    (M = ∅ -> envs_entails Δ' (WP fill K (Val $ NONEV) @ s; E {{ Φ }})) →
     envs_entails Δ (WP fill K (TryRecv (LitV $ LitLoc l)) @ s; E {{ Φ }}).
   Proof.
-    rewrite envs_entails_eq=> ??.
-    destruct (envs_simple_replace _ _ _) as [Δ''|] eqn:HΔ''; [ | contradiction ].
-    intros H.
-    rewrite -wp_bind. eapply wand_apply.
-      { eapply wp_tryrecv; eauto. }
-    rewrite into_laterN_env_sound -later_sep /= {1}envs_simple_replace_sound //; simpl.
-    apply later_mono, sep_mono_r. rewrite right_id. apply forall_intro=>v'.
-    apply wand_mono; auto;cycle 1.
-    - iIntros. iApply H.
-    - apply or_elim. iIntros "H".
+    intros H1 H2.
+    rewrite envs_entails_eq=> Hsuc Hfail.
+    destruct (decide (M = ∅)) as [Heq|Hne].
+    - (* NONE *)
+      specialize (Hfail Heq).
+      rewrite -wp_bind. eapply wand_apply.
+      { eapply wp_tryrecv_fail; eauto. }
+      rewrite into_laterN_env_sound -later_sep /= {1}envs_lookup_split //; simpl.
+      apply later_mono, sep_mono_r.
+      apply wand_mono; auto.
+      rewrite Heq. done.
 
-        * iIntros "H". iDestruct "H" as (h h'). iDestruct "H"
-        match goal with
-        | |- context[bi_or ?P ?Q] => remember P; remember Q
-        end. apply or_elim.
-        subst.
+    - (* SOME *)
+      clear Hfail.
+      (* destruct (envs_simple_replace _ _ _) as [Δ''|] eqn:HΔ''; [ | contradiction ]. *)
+      rewrite -wp_bind. eapply wand_apply.
+      { eapply wp_tryrecv_suc; eauto. }
+      rewrite into_laterN_env_sound -later_sep /= {1}envs_lookup_split //; simpl.
+      (* envs_simple_replace_sound //; simpl. *)
+      (* rewrite right_id. *)
+      apply later_mono, sep_mono_r; eauto.
+      apply forall_intro=> v'.
+      apply wand_intro_r.
+      rewrite sep_elim_l.
+      specialize (Hsuc v').
+      (* destruct (envs_simple_replace _ _ _) as [Δ''|] eqn:HΔ''; [ | contradiction ]. *)
+      (* specialize (Hsuc Hne). rewrite -Hsuc. *)
+      (* rewrite envs_simple_replace_sound //; simpl. *)
+      (* rewrite sep_elim_r. *)
+      (* rewrite right_id. *)
+      (* iIntros "HΦ". iApply "HΦ". *)
+      (* + *)
+      (* Contradiction here? ? *)
   Admitted.
+
+  Ltac wp_pures :=
+    iStartProof;
+    first [ (* The `;[]` makes sure that no side-condition magically spawns. *)
+            progress repeat (wp_pure _; [])
+          | wp_finish (* In case wp_pure never ran, make sure we do the usual cleanup. *)
+          ].
 
   Lemma awp_recv (c : loc) (m : val):
     ⊢ <<< ∀ (M : gset val), c ↦ M >>>
@@ -82,8 +105,22 @@ Section atomic_invariants.
   Proof.
     iIntros (Φ) "AU". iLöb as "IH". wp_lam.
     wp_bind (tryrecv _)%E. iMod "AU" as (M) "[Hl [Hclose _]]".
-    (* iApply tac_wp_tryrecv. *)
-    (* wp_recv. *)
+    match goal with
+    | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
+        reshape_expr e ltac:(fun K e' => eapply (tac_wp_tryrecv _ _ _ _ _ K))
+    end.
+    - iSolveTC.
+    - let l := match goal with |- _ = Some (_, (?l ↦{_} _)%I) => l end in
+        iAssumptionCore.
+    - (* Some *)
+      pm_reduce. intros. wp_finish.
+      iMod ("Hclose" with "Hl") as "HΦ".
+      iModIntro. wp_pures.
+      admit.
+    - (* None *)
+      pm_reduce. intros. wp_finish.
+      iMod ("Hclose" with "Hl") as "HΦ".
+      iModIntro. wp_pures. iApply "IH". done.
    Abort.
 
   (* TODO: After defining logical atomic spec to [tryrecv], look at

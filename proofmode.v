@@ -149,6 +149,12 @@ Ltac wp_finish :=
   try wp_value_head;
   pm_prettify.
 
+Ltac solve_vals_compare_safe :=
+  (* The first branch is for when we have [vals_compare_safe] in the context.
+     The other two branches are for when either one of the branches reduces to
+     [True] or we have it in the context. *)
+  fast_done || (left; fast_done) || (right; fast_done).
+
 Tactic Notation "wp_pure" open_constr(efoc) :=
   iStartProof;
   lazymatch goal with
@@ -158,9 +164,8 @@ Tactic Notation "wp_pure" open_constr(efoc) :=
       unify e' efoc;
       eapply (tac_wp_pure _ _ _ _ K e');
       [iSolveTC                       (* PureExec *)
-      |
-      (* try solve_vals_compare_safe    (* The pure condition for PureExec -- *)
-        handles trivial goals, including [vals_compare_safe] *)
+      | try solve_vals_compare_safe    (* The pure condition for PureExec -- *)
+                                      (* handles trivial goals, including [vals_compare_safe]  *)
       |iSolveTC                       (* IntoLaters *)
       |wp_finish                      (* new goal *)
       ])
