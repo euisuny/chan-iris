@@ -102,7 +102,61 @@ Section proof.
   Proof.
     iIntros ( neq Φ) "Pre Post". iApply twp_lift_atomic_head_step_no_fork; first done.
     iIntros (σ1 ns κs nt) "Hσ !>". iDestruct (gen_network_valid with "Hσ Pre") as %?.
-  Abort.
+    iSplit.
+    - iPureIntro.
+      assert (exists M v, v' = M ∪ {[v]}).
+      { unfold_leibniz. eapply set_choose in neq. destruct neq.
+        exists (v' ∖ {[x]}). exists x.
+        rewrite difference_union.
+        set_solver. }
+      destruct H0 as (? & ? & ?).
+      rewrite H0 in H. eauto.
+      eexists _, _, _. cbn.
+      eapply TryRecvSomeS; eauto.
+    - iIntros (κ v2 σ2 efs Hstep); inv_head_step.
+      iMod (gen_network_update with "Hσ Pre") as "[Hσ Hl]".
+      iModIntro; iSplit=> //. iSplit; first by done.
+      iFrame; eauto. iApply "Post".
+      iSplit; cycle 1.
+      + iPureIntro. set_solver.
+      + assert ((M ∪ {[v]})∖{[v]} = M ∖{[v]}).
+        { set_solver. }
+        rewrite H0. done.
+  Qed.
+
+  Lemma twp_tryrecv_fail (l : loc) (v' : gset chan_lang.val) s E :
+    v' = ∅ ->
+    [[{ l ↦ v' }]] tryrecv l @ s; E [[{ RET NONEV; l ↦ ∅ }]].
+  Proof.
+    iIntros ( neq Φ) "Pre Post". iApply twp_lift_atomic_head_step_no_fork; first done.
+    iIntros (σ1 ns κs nt) "Hσ !>". iDestruct (gen_network_valid with "Hσ Pre") as %?.
+    iSplit.
+    - iPureIntro. rewrite neq in H. eexists _, _, _. cbn.
+      eapply TryRecvNoneS; eauto.
+    - rewrite neq. rewrite neq in H.
+      iIntros (κ v2 σ2 efs Hstep); inv_head_step.
+      + iModIntro; iSplit=> //. iSplit; first by done.
+        iFrame; eauto. iApply "Post". done.
+      + set_solver.
+  Qed.
+
+  Lemma wp_tryrecv_suc (l : loc) (v' : gset chan_lang.val) s E :
+    v' ≠ ∅ ->
+    {{{ ▷ l ↦ v' }}}
+      tryrecv l @ s; E
+    {{{ v, RET SOMEV v; l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝ }}}.
+  Proof.
+    iIntros (neq Φ) ">H HΦ". iApply (twp_wp_step with "HΦ").
+    iApply (twp_tryrecv_suc with "H"); [by auto..|]; iIntros (v) "H HΦ". by iApply "HΦ".
+  Qed.
+
+  Lemma wp_tryrecv_fail (l : loc) (v' : gset chan_lang.val) s E :
+    v' = ∅ ->
+    {{{ ▷ l ↦ v' }}} tryrecv l @ s; E {{{ RET NONEV; l ↦ ∅ }}}.
+  Proof.
+    iIntros (eq Φ) ">H HΦ". iApply (twp_wp_step with "HΦ").
+    iApply (twp_tryrecv_fail with "H"); [by auto..|]; iIntros "H HΦ". by iApply "HΦ".
+  Qed.
 
   Lemma twp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) s E:
     [[{ c ↦ M }]] send(c, m) @ s; E

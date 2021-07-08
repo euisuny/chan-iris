@@ -52,23 +52,27 @@ Section atomic_invariants.
     MaybeIntoLaterNEnvs 1 Δ Δ' →
     envs_lookup i Δ' = Some (false, l ↦ M)%I →
     match envs_simple_replace i false (Esnoc Enil i (l ↦ (M∖{[v]}))) Δ' with
-    | Some Δ'' => v ∈ M -> envs_entails Δ'' (WP fill K (Val $ SOMEV v) @ s; E {{ Φ }})
+    | Some Δ'' => envs_entails Δ'' (WP fill K (Val $ v) @ s; E {{ Φ }})
     | None => False
     end ->
-    (v ∉ M -> envs_entails Δ' (WP fill K (Val $ NONEV) @ s; E {{ Φ }})) →
     envs_entails Δ (WP fill K (TryRecv (LitV $ LitLoc l)) @ s; E {{ Φ }}).
   Proof.
-    rewrite envs_entails_eq=> ?? Hsuc Hfail.
+    rewrite envs_entails_eq=> ??.
     destruct (envs_simple_replace _ _ _) as [Δ''|] eqn:HΔ''; [ | contradiction ].
-    destruct (decide (v ∈ M)) as [Heq|Hne].
-    - rewrite -wp_bind. eapply wand_apply.
+    intros H.
+    rewrite -wp_bind. eapply wand_apply.
       { eapply wp_tryrecv; eauto. }
-      rewrite into_laterN_env_sound -later_sep /= {1}envs_simple_replace_sound //; simpl.
-      apply later_mono, sep_mono_r. rewrite right_id. apply forall_intro=>v'.
-      apply wand_mono; auto.
-      + match goal with
+    rewrite into_laterN_env_sound -later_sep /= {1}envs_simple_replace_sound //; simpl.
+    apply later_mono, sep_mono_r. rewrite right_id. apply forall_intro=>v'.
+    apply wand_mono; auto;cycle 1.
+    - iIntros. iApply H.
+    - apply or_elim. iIntros "H".
+
+        * iIntros "H". iDestruct "H" as (h h'). iDestruct "H"
+        match goal with
         | |- context[bi_or ?P ?Q] => remember P; remember Q
-        end.
+        end. apply or_elim.
+        subst.
   Admitted.
 
   Lemma awp_recv (c : loc) (m : val):
