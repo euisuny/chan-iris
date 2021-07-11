@@ -132,3 +132,6 @@ Notation NewCh := (NewCh) (only parsing).
 Notation "'newch'" := (NewCh) (at level 10) : expr_scope.
 Notation Send c m := (Send c m) (only parsing).
 Notation "'send' ( c , v )" := (Send (LitV $ LitLoc c%E) (Val $ v)) (at level 10) : expr_scope.
+Notation Fork e := (Fork e) (only parsing).
+Notation "'fork' e" := (Fork (LitV $ LitLoc e%E)) (at level 10) : expr_scope.
+

@@ -71,14 +71,16 @@ Section atomic_invariants.
   (* IY: Not sure how to define this.. Naive attempts failed. *)
   Lemma tac_wp_tryrecv_suc Δ Δ' s E l K Φ M i:
     MaybeIntoLaterNEnvs 1 Δ Δ' →
+    (* IY: How do we express that "the precondition [M]" is an existentially
+      quantified state? *)
     M ≠ ∅ ->
     envs_lookup i Δ' = Some (false, l ↦ M)%I →
     (exists v,
-      (*   match envs_simple_replace i false (Esnoc Enil i (l ↦ (M∖{[v]}))) Δ' with *)
-      (* | Some Δ'' => *)
+        match envs_simple_replace i false (Esnoc Enil i (l ↦ (M∖{[v]}))) Δ' with
+      | Some Δ'' =>
       envs_entails Δ' (WP fill K (Val $ SOMEV v) @ s; E [{ Φ }])
-        (* | None => False *)
-     (* end *)
+        | None => False
+     end
     ) →
     envs_entails Δ (WP fill K (TryRecv (LitV $ LitLoc l)) @ s; E {{ Φ }}).
   Proof.
