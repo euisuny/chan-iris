@@ -1,4 +1,7 @@
-From chanlang Require Import lang notation network_ra tactics proofmode.
+(* An atomic heap defined over the channel primitives in the language. *)
+
+From chanlang Require Import
+     class_instances lang notation network_ra tactics primitive_laws proofmode.
 
 From iris.bi.lib Require Import fractional.
 From iris.bi Require Import atomic derived_laws interface.
@@ -7,17 +10,18 @@ From iris.proofmode Require Export tactics.
 From iris.program_logic Require Import atomic weakestpre.
 From iris.prelude Require Import options.
 From iris.proofmode Require Export tactics.
+
+Import uPred.
+
 (* See [Stack Item 4 : Mutable references] *)
 (* Section 8 : Putting logical atomicity to work *)
-
-(* An atomic heap defined over the channel primitives in the language. *)
-Section chanref.
+Module chanref.
 
   Definition expr := chan_lang.expr.
 
-  Variable (e_newch : expr).
-  Variable (e_send : expr -> expr -> expr).
-  Variable (e_recv : expr -> expr).
+  Parameter (e_newch : expr).
+  Parameter (e_send : expr -> expr -> expr).
+  Parameter (e_recv : expr -> expr).
 
   (* Figure 16 *)
   Definition srv (r : expr) : val :=
@@ -54,3 +58,8 @@ Section chanref.
       Fork (srv "r" "e");; "r".
 
 End chanref.
+
+Section proof.
+  Context `{!chanG Σ}.
+
+  Definition 
