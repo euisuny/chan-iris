@@ -2,7 +2,6 @@
 Iris case study (WIP). 
 An implementation of ChanLang, a message-passing calculus with non-blocking send,
 receive, and fork operations.
-There is a logically atomic heap specified which can store channels.
 
 ## Specification
 - [lang.v] : language definition, with usual small-step semantics of a
