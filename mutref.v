@@ -59,7 +59,4 @@ Module chanref.
 
 End chanref.
 
-Section proof.
-  Context `{!chanG Σ}.
-
-  Definition 
+(* TODO : Figure 18 -- specification for references *)
