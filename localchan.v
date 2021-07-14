@@ -68,38 +68,6 @@ Section atomic_invariants.
     rewrite Heq. done.
   Qed.
 
-  (* IY: Not sure how to define this.. Naive attempts failed. *)
-  Lemma tac_wp_tryrecv_suc Δ Δ' s E l K Φ M i:
-    MaybeIntoLaterNEnvs 1 Δ Δ' →
-    (* IY: How do we express that "the precondition [M]" is an existentially
-      quantified state? *)
-    M ≠ ∅ ->
-    envs_lookup i Δ' = Some (false, l ↦ M)%I →
-    (exists v,
-        match envs_simple_replace i false (Esnoc Enil i (l ↦ (M∖{[v]}))) Δ' with
-      | Some Δ'' =>
-      envs_entails Δ' (WP fill K (Val $ SOMEV v) @ s; E [{ Φ }])
-        | None => False
-     end
-    ) →
-    envs_entails Δ (WP fill K (TryRecv (LitV $ LitLoc l)) @ s; E {{ Φ }}).
-  Proof.
-    (* intros Ne H1. *)
-    (* rewrite envs_entails_eq=> Heq Hsuc. *)
-    (* rewrite -wp_bind. eapply wand_apply. *)
-    (* { eapply wp_tryrecv_suc; eauto. Unshelve. 2 : exact (M ∪ {[v]}). set_solver. } *)
-
-    (* destruct (envs_simple_replace _ _ _) as [Δ''|] eqn:HΔ''; [ | contradiction ]. *)
-    (* rewrite into_laterN_env_sound -later_sep /= {1}envs_simple_replace_sound //; simpl. *)
-    (* apply later_mono, sep_mono_r. *)
-    (* apply forall_intro=> v'. *)
-    (* apply wand_intro_r. *)
-    (* rewrite sep_elim_l. *)
-    (* rewrite right_id. *)
-    (* rewrite Hsuc. *)
-    (* Unshelve. 2 : exact v'. *)
-  Admitted.
-
   Ltac wp_pures :=
     iStartProof;
     first [ (* The `;[]` makes sure that no side-condition magically spawns. *)
@@ -107,12 +75,36 @@ Section atomic_invariants.
           | wp_finish (* In case wp_pure never ran, make sure we do the usual cleanup. *)
           ].
 
+  Ltac wp_apply_core lem tac_suc tac_fail := first
+    [iPoseProofCore lem as false (fun H =>
+      lazymatch goal with
+      | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
+        reshape_expr e ltac:(fun K e' =>
+          wp_bind_core K; tac_suc H)
+      | |- envs_entails _ (twp ?s ?E ?e ?Q) =>
+        reshape_expr e ltac:(fun K e' =>
+          twp_bind_core K; tac_suc H)
+      | _ => fail 1 "wp_apply: not a 'wp'"
+      end)
+    |tac_fail ltac:(fun _ => wp_apply_core lem tac_suc tac_fail)
+    |let P := type of lem in
+    fail "wp_apply: cannot apply" lem ":" P ].
+
+  Tactic Notation "wp_apply" open_constr(lem) :=
+    wp_apply_core lem ltac:(fun H => iApplyHyp H; try iNext; try wp_expr_simpl)
+                      ltac:(fun cont => fail).
+  Tactic Notation "wp_smart_apply" open_constr(lem) :=
+    wp_apply_core lem ltac:(fun H => iApplyHyp H; try iNext; try wp_expr_simpl)
+                      ltac:(fun cont => wp_pure _; []; cont ()).
+
+
   Lemma awp_recv (c : loc) (m : val):
     ⊢ <<< ∀ (M : gset val), c ↦ M >>>
         recv (LitV $ LitLoc $ c) @ ⊤ <<< c ↦ (M ∖ {[m]}) ∧ ⌜m ∈ M⌝, RET m >>>.
   Proof.
     iIntros (Φ) "AU". iLöb as "IH".
-    wp_lam. wp_bind (tryrecv _)%E.
+    wp_lam.
+    wp_bind (tryrecv _)%E.
     iMod "AU" as (M) "[Hl [Hclose _]]".
     destruct (decide (M = ∅)) as [[= ->]|Hx].
     - (* Empty set : Returns none. *)
@@ -129,27 +121,10 @@ Section atomic_invariants.
         iModIntro. wp_pures. iApply "IH". done.
 
     - (* Non-empty : update the state. *)
-      match goal with
-      | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
-          reshape_expr e ltac:(fun K e' => eapply (tac_wp_tryrecv_suc _ _ _ _ _ K))
-      end.
-      + iSolveTC.
-      + eauto.
-      + iAssumptionCore.
-      + pm_reduce.
-        assert (∃ x : val, x ∈ M).
-        { unfold_leibniz. eapply set_choose in Hx. eauto. }
-
-        destruct H as (v & IN).
-        exists v.
-        wp_pures.
-        (* iDestruct "Hclose" as "[_ Hclose]". iMod ("Hclose" with "Hl") as "HΦ". *)
-
-        (* iMod ("Hclose" with "Hl") as "AU". *)
-        (* iModIntro. *)
-
-        (* iMod "AU" as (M') "[Hl [Hclose _]]". *)
-        (* wp_pures. *)
+      iApply (wp_tryrecv_suc with "Hl"); auto.
+      iNext. iIntros (v) "HΦ".
+      (* IY: "Hclose" needs to be updated but wp_tryrecv_suc does not take a WP
+        condition.. *)
   Admitted.
 
   (* TODO: After defining logical atomic spec to [tryrecv], look at
