@@ -213,3 +213,42 @@ Tactic Notation "wp_rec" :=
   wp_pure (App _ _);
   clear H.
 Tactic Notation "wp_lam" := wp_rec; auto.
+
+Ltac wp_pures :=
+  iStartProof;
+  first [ (* The `;[]` makes sure that no side-condition magically spawns. *)
+          progress repeat (wp_pure _; [])
+        | wp_finish (* In case wp_pure never ran, make sure we do the usual cleanup. *)
+        ].
+
+Ltac wp_apply_core lem tac_suc tac_fail := first
+  [iPoseProofCore lem as false (fun H =>
+    lazymatch goal with
+    | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
+      reshape_expr e ltac:(fun K e' =>
+        wp_bind_core K; tac_suc H)
+    | |- envs_entails _ (twp ?s ?E ?e ?Q) =>
+      reshape_expr e ltac:(fun K e' =>
+        twp_bind_core K; tac_suc H)
+    | _ => fail 1 "wp_apply: not a 'wp'"
+    end)
+  |tac_fail ltac:(fun _ => wp_apply_core lem tac_suc tac_fail)
+  |let P := type of lem in
+  fail "wp_apply: cannot apply" lem ":" P ].
+
+Tactic Notation "wp_apply" open_constr(lem) :=
+  wp_apply_core lem ltac:(fun H => iApplyHyp H; try iNext; try wp_expr_simpl)
+                    ltac:(fun cont => fail).
+Tactic Notation "wp_smart_apply" open_constr(lem) :=
+  wp_apply_core lem ltac:(fun H => iApplyHyp H; try iNext; try wp_expr_simpl)
+                    ltac:(fun cont => wp_pure _; []; cont ()).
+
+Tactic Notation "awp_apply" open_constr(lem) :=
+  wp_apply_core lem ltac:(fun H => iApplyHyp H) ltac:(fun cont => fail);
+  last iAuIntro.
+Tactic Notation "awp_apply" open_constr(lem) "without" constr(Hs) :=
+  wp_apply_core lem
+    ltac:(fun H =>
+      iApply wp_frame_step_l; iSplitL Hs; [iAccu|iApplyHyp H])
+    ltac:(fun cont => fail);
+  last iAuIntro.

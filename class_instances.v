@@ -32,6 +32,8 @@ Section atomic.
   Global Instance lit_atomic s v : Atomic s (Val v).
   Proof. solve_atomic. Qed.
 
+  Global Instance newch_atomic s : Atomic s (newch).
+  Proof. solve_atomic. Qed.
   Global Instance fork_atomic s e : Atomic s (Fork e).
   Proof. solve_atomic. Qed.
   Global Instance send_atomic s c m : Atomic s (chan_lang.Send (Val c) (Val m)).

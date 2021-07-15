@@ -7,11 +7,11 @@ From iris.base_logic.lib Require Import invariants.
 (* Ghost state for reasoning about chan_lang threadpool. *)
 Class chanG Σ :=
   ChanG {
-      chan_invG : invG Σ;
+      chan_invG : invGS Σ;
       chan_gen_networkG :> gen_networkGS loc (gset val) Σ;
     }.
 
-Global Instance chan_irisG `{!chanG Σ} : irisG chan_lang Σ :=
+Global Instance chan_irisG `{!chanG Σ} : irisGS chan_lang Σ :=
   {
   iris_invG := chan_invG;
   state_interp σ _ κs _ := (gen_network_interp σ.(chan))%I;
