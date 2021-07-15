@@ -1,4 +1,4 @@
-From iris.proofmode Require Import coq_tactics reduction.
+From iris.proofmode Require Import coq_tactics reduction spec_patterns.
 From iris.proofmode Require Export tactics.
 From iris.program_logic Require Import atomic weakestpre.
 From iris.prelude Require Import options.
@@ -128,20 +128,28 @@ Proof.
   rewrite right_id. apply later_mono, sep_mono_r, wand_mono; eauto.
 Qed.
 
+Lemma tac_wp_value `{!chanG Σ} Δ s E (Φ : val → iPropI Σ) v :
+  envs_entails Δ (|={E}=> Φ v) → envs_entails Δ (WP (Val v) @ s; E {{ Φ }}).
+Proof. rewrite envs_entails_eq=> ->. by rewrite wp_value_fupd. Qed.
+Lemma tac_twp_value `{!chanG Σ} Δ s E (Φ : val → iPropI Σ) v :
+  envs_entails Δ (|={E}=> Φ v) → envs_entails Δ (WP (Val v) @ s; E [{ Φ }]).
+Proof. rewrite envs_entails_eq=> ->. by rewrite twp_value_fupd. Qed.
+
+
 Ltac wp_value_head :=
   lazymatch goal with
   | |- envs_entails _ (wp ?s ?E (Val _) (λ _, fupd ?E _ _)) =>
       eapply tac_wp_value_nofupd
   | |- envs_entails _ (wp ?s ?E (Val _) (λ _, wp _ ?E _ _)) =>
       eapply tac_wp_value_nofupd
-  (* | |- envs_entails _ (wp ?s ?E (Val _) _) => *)
-  (*     eapply tac_wp_value *)
+  | |- envs_entails _ (wp ?s ?E (Val _) _) =>
+      eapply tac_wp_value
   | |- envs_entails _ (twp ?s ?E (Val _) (λ _, fupd ?E _ _)) =>
       eapply tac_twp_value_nofupd
   | |- envs_entails _ (twp ?s ?E (Val _) (λ _, twp _ ?E _ _)) =>
       eapply tac_twp_value_nofupd
-  (* | |- envs_entails _ (twp ?s ?E (Val _) _) => *)
-  (*     eapply tac_twp_value *)
+  | |- envs_entails _ (twp ?s ?E (Val _) _) =>
+      eapply tac_twp_value
   end.
 
 Ltac wp_finish :=
@@ -213,6 +221,7 @@ Tactic Notation "wp_rec" :=
   wp_pure (App _ _);
   clear H.
 Tactic Notation "wp_lam" := wp_rec; auto.
+Tactic Notation "wp_seq" := wp_pure (Rec BAnon BAnon _); wp_lam.
 
 Ltac wp_pures :=
   iStartProof;
@@ -246,9 +255,14 @@ Tactic Notation "wp_smart_apply" open_constr(lem) :=
 Tactic Notation "awp_apply" open_constr(lem) :=
   wp_apply_core lem ltac:(fun H => iApplyHyp H) ltac:(fun cont => fail);
   last iAuIntro.
+
 Tactic Notation "awp_apply" open_constr(lem) "without" constr(Hs) :=
+  (* Convert "list of hypothesis" into specialization pattern. *)
+  let Hs := words Hs in
+  let Hs := eval vm_compute in (INamed <$> Hs) in
   wp_apply_core lem
     ltac:(fun H =>
-      iApply wp_frame_step_l; iSplitL Hs; [iAccu|iApplyHyp H])
+      iApply (wp_frame_wand with
+        [SGoal $ SpecGoal GSpatial false [] Hs false]); [iAccu|iApplyHyp H])
     ltac:(fun cont => fail);
   last iAuIntro.

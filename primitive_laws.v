@@ -176,4 +176,12 @@ Section proof.
     iApply (twp_send with "H"); [by auto..|]; iIntros "H HΦ". by iApply "HΦ".
   Qed.
 
+  Lemma wp_fork s E e Φ :
+    ▷ WP e @ s; ⊤ {{ _, True }} -∗ ▷ Φ (LitV LitUnit) -∗ WP Fork e @ s; E {{ Φ }}.
+  Proof.
+    iIntros "He HΦ". iApply wp_lift_atomic_head_step; [done|].
+    iIntros (σ1 ns κ κs nt) "Hσ !>"; iSplit; first by eauto with head_step.
+    iIntros "!>" (v2 σ2 efs Hstep); inv_head_step. by iFrame.
+  Qed.
+
 End proof.
