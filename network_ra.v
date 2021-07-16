@@ -4,6 +4,9 @@ From iris.bi.lib Require Import fractional.
 From iris.proofmode Require Import tactics.
 From iris.base_logic.lib Require Export own.
 From iris.prelude Require Import options.
+From iris.base_logic.lib Require Export wsat.
+Import invGS.
+
 
 Class gen_networkGpreS (L V : Type) (Σ : gFunctors) `{Countable L} := {
   gen_networkGpreS_inG :> inG Σ (gmap_viewR L (leibnizO V));
@@ -11,9 +14,10 @@ Class gen_networkGpreS (L V : Type) (Σ : gFunctors) `{Countable L} := {
 
 Class gen_networkGS (L V : Type) (Σ : gFunctors) `{Countable L} := GenNetworkGS {
   gen_network_inG :> gen_networkGpreS L V Σ;
+  gen_network_invG : invGS Σ;
   gen_network_name : gname;
 }.
-Global Arguments GenNetworkGS L V Σ {_ _ _} _ : assert.
+Global Arguments GenNetworkGS L V Σ {_ _ _} _ _: assert.
 Global Arguments gen_network_name {L V Σ _ _} _ : assert.
 
 Definition gen_networkΣ (L V : Type) `{Countable L} : gFunctors := #[
@@ -97,11 +101,11 @@ Section gen_network.
   Qed.
 End gen_network.
 
-Lemma gen_network_init `{Countable L, !gen_networkGpreS L V Σ} σ :
-  ⊢ |==> ∃ _ : gen_networkGS L V Σ, gen_network_interp σ.
-Proof.
-  iMod (own_alloc (gmap_view_auth 1 (σ : gmap L (leibnizO V)))) as (γ) "Hσ".
-  { exact: gmap_view_auth_valid.  }
-  iExists (GenNetworkGS _ _ _ γ).
-  done.
-Qed.
+(* Lemma gen_network_init `{Countable L, !gen_networkGpreS L V Σ} σ : *)
+(*   ⊢ |==> ∃ _ : gen_networkGS L V Σ, gen_network_interp σ. *)
+(* Proof. *)
+(*   iMod (own_alloc (gmap_view_auth 1 (σ : gmap L (leibnizO V)))) as (γ) "Hσ". *)
+(*   { exact: gmap_view_auth_valid.  } *)
+(*   (* iExists (GenNetworkGS _ _ _ γ). *) *)
+(*   done. *)
+(* Qed. *)

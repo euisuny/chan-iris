@@ -32,8 +32,6 @@ Class atomic_heap {Σ} `{!chanG Σ} := AtomicHeap {
   mapsto (l : loc) (v : val) : iProp Σ;
   (* -- mapsto properties -- *)
   mapsto_timeless l v :> Timeless (mapsto l v);
-  mapsto_agree l v1 v2 : mapsto l v1 -∗ mapsto l v2 -∗ ⌜v1 = v2⌝;
-  mapsto_persist l v : mapsto l v ==∗ mapsto l v;
   (* -- operation specs -- *)
   ref_spec (v : val) :
     {{{ True }}} ref v {{{ l, RET #l; mapsto l v }}};
@@ -116,7 +114,7 @@ Section proof.
     - wp_seq. iModIntro. iApply "HΦ".
   Admitted.
 
-  Lemma chan_get_spec (r : loc) (v : val):
+  Lemma chan_set_spec (r : loc) (v : val):
     ⊢ <<< ∀ w, r ↦ {[w]} >>> chan_set #r v @ ⊤ <<< r ↦ {[v]}, RET #() >>>.
   Proof.
     iIntros (Φ) "HΦ".
@@ -132,4 +130,46 @@ Section proof.
     awp_apply awp_send without "HΦ".
   Admitted.
 
+  Lemma chan_get_spec (r : loc) :
+    ⊢ <<< ∀ v, r ↦ {[v]} >>> chan_get #r @ ⊤ <<< r ↦ {[v]}, RET v >>>.
+  Proof.
+    iIntros (Φ) "HΦ".
+    iLöb as "IH".
+    wp_lam. wp_pures.
+    unfold rpc. wp_lam. wp_pures.
+    wp_bind (newch)%E.
+    iMod "HΦ" as (M) "[Hl [Hclose _]]".
+    iApply wp_newch; first by done.
+    iNext. iIntros (l) "H".
+    iMod ("Hclose" with "Hl") as "HΦ".
+    iModIntro. wp_pures.
+    awp_apply awp_send without "HΦ".
+  Admitted.
+
+  Lemma chan_cas_spec (r : loc) (v1 v2 : val) :
+    ⊢ <<< ∀ v, r ↦ {[v]} >>> chan_cas #r v1 v2 @ ⊤
+      <<< if decide (v = v1) then r ↦ {[v2]} else r ↦ {[v]},
+    RET (v, #if decide (v = v1) then TRUE else FALSE) >>>.
+  Proof.
+    iIntros (Φ) "HΦ".
+    iLöb as "IH".
+    wp_lam. wp_pures.
+    unfold rpc. wp_lam. wp_pures.
+    wp_bind (newch)%E.
+    iMod "HΦ" as (M) "[Hl [Hclose _]]".
+    iApply wp_newch; first by done.
+    iNext. iIntros (l) "H".
+    iMod ("Hclose" with "Hl") as "HΦ".
+    iModIntro. wp_pures.
+    awp_apply awp_send without "HΦ".
+  Admitted.
+
 End proof.
+
+Definition chan_mutref `{!chanG Σ} : atomic_heap Σ :=
+  {|
+    ref_spec := chan_ref_spec;
+    get_spec := chan_get_spec;
+    set_spec := chan_set_spec;
+    cas_spec := chan_cas_spec;
+  |}.
