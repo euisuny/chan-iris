@@ -9,7 +9,6 @@ From iris.proofmode Require Export tactics.
  and [bi.lib]? *)
 Import uPred.
 
-
 From chanlang Require Import
      class_instances lang notation network_ra tactics primitive_laws proofmode.
 Set Default Proof Using "Type".

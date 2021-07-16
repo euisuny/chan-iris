@@ -128,7 +128,7 @@ Proof.
   rewrite right_id. apply later_mono, sep_mono_r, wand_mono; eauto.
 Qed.
 
-Lemma tac_wp_tryrecv_fail Δ Δ' s E l K Φ M i:
+Lemma tac_wp_tryrecv_fail `{!chanG Σ} Δ Δ' s E l K Φ M i:
   MaybeIntoLaterNEnvs 1 Δ Δ' →
   envs_lookup i Δ' = Some (false, l ↦ M)%I →
   M = ∅ -> envs_entails Δ' (WP fill K (Val $ NONEV) @ s; E {{ Φ }}) →

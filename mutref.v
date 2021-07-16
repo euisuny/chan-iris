@@ -18,9 +18,6 @@ Import uPred.
 (* See [Stack Item 4 : Mutable references] *)
 (* Section 8 : Putting logical atomicity to work *)
 
-Notation "'TRUE'" := (LitBool Datatypes.true).
-Notation "'FALSE'" := (LitBool Datatypes.false).
-
 (** A general logically atomic interface for a heap. *)
 Class atomic_heap {Σ} `{!chanG Σ} := AtomicHeap {
   (* -- operations -- *)
@@ -135,6 +132,7 @@ Section proof.
     2 : {
       iIntros "_ !>". wp_pures.
       awp_apply awp_recv.
+
   Admitted.
 
   Lemma chan_get_spec (r : loc) :

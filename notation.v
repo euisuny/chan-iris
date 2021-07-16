@@ -135,3 +135,5 @@ Notation "'send' ( c , v )" := (Send (LitV $ LitLoc c%E) (Val $ v)) (at level 10
 Notation Fork e := (Fork e) (only parsing).
 Notation "'fork' e" := (Fork (LitV $ LitLoc e%E)) (at level 10) : expr_scope.
 
+Notation "'TRUE'" := (LitBool Datatypes.true) : val_scope.
+Notation "'FALSE'" := (LitBool Datatypes.false) : val_scope.
