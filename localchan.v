@@ -28,11 +28,11 @@ Section atomic_invariants.
 
   Notation "'val'" := chan_lang.val.
 
-  Lemma awp_send (c : loc) (M : gset val) (m : val) :
-    ⊢ <<< c ↦ M >>> send(c, m) @ ⊤ <<< c ↦ (M ∪ {[m]}), RET #() >>>.
+  Lemma awp_send (c : loc) (m : val) :
+    ⊢ <<< ∀ M, c ↦ M >>> send(c, m) @ ⊤ <<< c ↦ (M ∪ {[m]}), RET #() >>>.
   Proof.
     iIntros (Φ) "AU".
-    iMod "AU" as "[H↦ [_ Hclose]]".
+    iMod "AU" as (M) "[H↦ [_ Hclose]]".
     match goal with
     | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
         reshape_expr e ltac:(fun K e' => eapply (tac_wp_send _ _ _ _ _ K))
@@ -52,25 +52,9 @@ Section atomic_invariants.
       | SOME "m" => "m"
       end.
 
-  Lemma tac_wp_tryrecv_fail Δ Δ' s E l K Φ M i:
-    MaybeIntoLaterNEnvs 1 Δ Δ' →
-    envs_lookup i Δ' = Some (false, l ↦ M)%I →
-    M = ∅ -> envs_entails Δ' (WP fill K (Val $ NONEV) @ s; E {{ Φ }}) →
-    envs_entails Δ (WP fill K (TryRecv (LitV $ LitLoc l)) @ s; E {{ Φ }}).
-  Proof.
-    intros H1 H2.
-    rewrite envs_entails_eq=> Heq Hfail.
-    rewrite -wp_bind. eapply wand_apply.
-    { eapply wp_tryrecv_fail; eauto. }
-    rewrite into_laterN_env_sound -later_sep /= {1}envs_lookup_split //; simpl.
-    apply later_mono, sep_mono_r.
-    apply wand_mono; auto.
-    rewrite Heq. done.
-  Qed.
-
-  Lemma awp_recv (c : loc) (m : val):
+  Lemma awp_recv (c : loc):
     ⊢ <<< ∀ (M : gset val), c ↦ M >>>
-        recv (LitV $ LitLoc $ c) @ ⊤ <<< c ↦ (M ∖ {[m]}) ∧ ⌜m ∈ M⌝, RET m >>>.
+        recv (LitV $ LitLoc $ c) @ ⊤ <<< ∃ m, c ↦ (M ∖ {[m]}) ∧ ⌜m ∈ M⌝, RET m >>>.
   Proof.
     iIntros (Φ) "AU". iLöb as "IH".
     wp_lam.
@@ -97,6 +81,4 @@ Section atomic_invariants.
         condition.. *)
   Admitted.
 
-  (* TODO: After defining logical atomic spec to [tryrecv], look at
-     [heap_lang.lib.atomic_heap] for atomic heap implementation. *)
 End atomic_invariants.

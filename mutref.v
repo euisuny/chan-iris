@@ -127,7 +127,14 @@ Section proof.
     iNext. iIntros (l) "H".
     iMod ("Hclose" with "Hl") as "HΦ".
     iModIntro. wp_pures.
-    awp_apply awp_send without "HΦ".
+    awp_apply awp_send.
+    iApply (aacc_aupd_commit with "HΦ"); first done.
+    iIntros (v') "H↦".
+    iAaccIntro with "H↦"; first by eauto with iFrame.
+    iIntros "HΦ !>". iSplitR.
+    2 : {
+      iIntros "_ !>". wp_pures.
+      awp_apply awp_recv.
   Admitted.
 
   Lemma chan_get_spec (r : loc) :

@@ -128,13 +128,28 @@ Proof.
   rewrite right_id. apply later_mono, sep_mono_r, wand_mono; eauto.
 Qed.
 
+Lemma tac_wp_tryrecv_fail Δ Δ' s E l K Φ M i:
+  MaybeIntoLaterNEnvs 1 Δ Δ' →
+  envs_lookup i Δ' = Some (false, l ↦ M)%I →
+  M = ∅ -> envs_entails Δ' (WP fill K (Val $ NONEV) @ s; E {{ Φ }}) →
+  envs_entails Δ (WP fill K (TryRecv (LitV $ LitLoc l)) @ s; E {{ Φ }}).
+Proof.
+  intros H1 H2.
+  rewrite envs_entails_eq=> Heq Hfail.
+  rewrite -wp_bind. eapply wand_apply.
+  { eapply wp_tryrecv_fail; eauto. }
+  rewrite into_laterN_env_sound -later_sep /= {1}envs_lookup_split //; simpl.
+  apply later_mono, sep_mono_r.
+  apply wand_mono; auto.
+  rewrite Heq. done.
+Qed.
+
 Lemma tac_wp_value `{!chanG Σ} Δ s E (Φ : val → iPropI Σ) v :
   envs_entails Δ (|={E}=> Φ v) → envs_entails Δ (WP (Val v) @ s; E {{ Φ }}).
 Proof. rewrite envs_entails_eq=> ->. by rewrite wp_value_fupd. Qed.
 Lemma tac_twp_value `{!chanG Σ} Δ s E (Φ : val → iPropI Σ) v :
   envs_entails Δ (|={E}=> Φ v) → envs_entails Δ (WP (Val v) @ s; E [{ Φ }]).
 Proof. rewrite envs_entails_eq=> ->. by rewrite twp_value_fupd. Qed.
-
 
 Ltac wp_value_head :=
   lazymatch goal with
