@@ -25,13 +25,12 @@ Section atomic_invariants.
 
   Notation iProp := (iProp Σ).
 
-  Notation "'val'" := chan_lang.val.
-
   Lemma awp_send (c : loc) (m : val) :
     ⊢ <<< ∀ M, c ↦ M >>> send(c, m) @ ⊤ <<< c ↦ (M ∪ {[m]}), RET #() >>>.
   Proof.
     iIntros (Φ) "AU".
     iMod "AU" as (M) "[H↦ [_ Hclose]]".
+    (* TODO: define [wp_send] *)
     match goal with
     | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
         reshape_expr e ltac:(fun K e' => eapply (tac_wp_send _ _ _ _ _ K))
@@ -53,14 +52,16 @@ Section atomic_invariants.
 
   Lemma awp_recv (c : loc):
     ⊢ <<< ∀ (M : gset val), c ↦ M >>>
-        recv (LitV $ LitLoc $ c) @ ⊤ <<< ∃ m, c ↦ (M ∖ {[m]}) ∧ ⌜m ∈ M⌝, RET m >>>.
+        recv (LitV $ LitLoc $ c) @ ⊤
+      <<< ∃ m, c ↦ (M ∖ {[m]}) ∧ ⌜m ∈ M⌝, RET m >>>.
   Proof.
     iIntros (Φ) "AU". iLöb as "IH".
     wp_lam.
     wp_bind (tryrecv _)%E.
-    iMod "AU" as (M) "[Hl [Hclose _]]".
+    iMod "AU" as (M) "[Hl Hclose]".
     destruct (decide (M = ∅)) as [[= ->]|Hx].
     - (* Empty set : Returns none. *)
+      iDestruct "Hclose" as "[Hclose _]".
       match goal with
       | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
           reshape_expr e ltac:(fun K e' => eapply (tac_wp_tryrecv_fail _ _ _ _ _ K))
@@ -74,10 +75,11 @@ Section atomic_invariants.
         iModIntro. wp_pures. iApply "IH". done.
 
     - (* Non-empty : update the state. *)
+      iDestruct "Hclose" as "[_ Hclose]".
       iApply (wp_tryrecv_suc with "Hl"); auto.
       iNext. iIntros (v) "HΦ".
-      (* IY: "Hclose" needs to be updated but wp_tryrecv_suc does not take a WP
-        condition.. *)
-  Admitted.
+      iMod ("Hclose" with "HΦ") as "HΦ".
+      iModIntro. wp_pures. done.
+  Qed.
 
 End atomic_invariants.

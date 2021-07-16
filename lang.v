@@ -389,6 +389,7 @@ Inductive head_step : expr → state → list observation → expr → state →
       σ.(chan) !! c = Some $ M ->
       head_step (Send (Val $ LitV $ LitLoc c) (Val v)) σ
                 []
+                (* TODO : use multiset union operation \uplus *)
                 (Val $ LitV LitUnit) (state_upd_chan <[c := M ∪ {[ v ]}]> σ)
                 []
   | TryRecvNoneS σ c:

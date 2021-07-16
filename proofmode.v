@@ -5,6 +5,8 @@ From iris.prelude Require Import options.
 From iris.proofmode Require Export tactics.
 (* IY: What's the difference between [atomic] at [iris.program_logic]
  and [bi.lib]? *)
+(* use program_logic *)
+(* bi -> program_logic -> *)
 From iris.bi Require Import atomic derived_laws interface.
 Import uPred.
 
@@ -12,13 +14,14 @@ From chanlang Require Import
      class_instances lang notation network_ra tactics primitive_laws.
 Set Default Proof Using "Type".
 
+Notation val := chan_lang.val.
 
-Notation "'val'" := chan_lang.val.
 Local Ltac solve_atomic :=
   apply strongly_atomic_atomic, ectx_language_atomic;
     [inversion 1; naive_solver
     |apply ectxi_language_sub_redexes_are_values; intros [] **; naive_solver].
 
+(* IY : used for [wp_bind]. finding "hole" in evaluation context *)
 Ltac reshape_expr e tac :=
   let rec go K vs e :=
     match e with
@@ -34,6 +37,7 @@ Ltac reshape_expr e tac :=
     | Case ?e0 ?e1 ?e2                => add_item (CaseCtx e1 e2) vs K e0
     | Send ?e (Val ?v)                => add_item (SendLCtx v) vs K e
     | Send ?e1 ?e2                    => add_item (SendRCtx e1) vs K e2
+    (* TODO: Add TryRecv *)
     end
   with add_item Ki vs K e :=
     lazymatch vs with

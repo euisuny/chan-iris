@@ -14,10 +14,9 @@ Class gen_networkGpreS (L V : Type) (Σ : gFunctors) `{Countable L} := {
 
 Class gen_networkGS (L V : Type) (Σ : gFunctors) `{Countable L} := GenNetworkGS {
   gen_network_inG :> gen_networkGpreS L V Σ;
-  gen_network_invG : invGS Σ;
   gen_network_name : gname;
 }.
-Global Arguments GenNetworkGS L V Σ {_ _ _} _ _: assert.
+Global Arguments GenNetworkGS L V Σ {_ _ _} _: assert.
 Global Arguments gen_network_name {L V Σ _ _} _ : assert.
 
 Definition gen_networkΣ (L V : Type) `{Countable L} : gFunctors := #[
