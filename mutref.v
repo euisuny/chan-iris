@@ -53,16 +53,22 @@ Definition expr := chan_lang.expr.
 (* Figure 16 *)
 Definition srv (r : expr) : val :=
   rec: "loop" "v" :=
+    (* Receive on channel [r] (a "reference") *)
     let: "dm" := recv r in
+    (* [Fst "dm"] is the reply channel. the second argument
+     is the "writeback" to the reference *)
     let: "reply" :=
       λ: "m'" "v'",
         Send (Fst "dm") "m'";; "loop" "v'" in
     match: "m" with
       NONE => "reply" "v" "v" (* GET *)
-    | SOME "w" =>
+    | SOME "w" => (* w : (val, option val) *)
         match: Snd "w" with
             NONE => "reply" #() (Fst "w") (* SET *)
-          | SOME "v2" => "reply" (Fst "w") "v2" (* CAS *)
+        | SOME "v2" =>
+          let: "b" := LitV $ LitBool $ bool_decide (Fst "w" = "v") in
+          let: "v'" := if "b" then "v2" else Fst "w" in
+          "reply" (Fst "w") "v'" (* CAS *)
       end
     end.
 
@@ -97,21 +103,21 @@ Section proof.
     wp_rec.
   Admitted.
 
-  Lemma chan_ref_spec (v : val) (M: gset val) :
-    {{{ True }}} chan_ref v {{{ l, RET LitV (LitLoc l); l ↦ M }}}.
+  Lemma chan_ref_spec (v : val) :
+    {{{ True }}} chan_ref v {{{ l, RET LitV (LitLoc l); l ↦ {[v]} }}}.
   Proof.
     iIntros (Φ) "_ HΦ".
-    iLöb as "IH".
+    iLöb as "IH" forall (v Φ).
     wp_lam. wp_bind (newch)%E.
     wp_apply wp_newch; first done.
     iIntros (l) "Hl". wp_pures.
     wp_apply (wp_fork with "[]").
     - iNext. by iApply srv_spec.
-    - wp_seq. iModIntro.
+    - wp_seq. iModIntro. iApply "HΦ".
   Admitted.
 
   Lemma chan_get_spec (r : loc) (v : val):
-    ⊢ <<< ∀ w, r ↦ w >>> chan_set #r v @ ⊤ <<< r ↦ {[v]}, RET #() >>>.
+    ⊢ <<< ∀ w, r ↦ {[w]} >>> chan_set #r v @ ⊤ <<< r ↦ {[v]}, RET #() >>>.
   Proof.
     iIntros (Φ) "HΦ".
     iLöb as "IH".
