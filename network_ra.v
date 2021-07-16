@@ -100,12 +100,3 @@ Section gen_network.
     iModIntro. iFrame.
   Qed.
 End gen_network.
-
-(* Lemma gen_network_init `{Countable L, !gen_networkGpreS L V Σ} σ : *)
-(*   ⊢ |==> ∃ _ : gen_networkGS L V Σ, gen_network_interp σ. *)
-(* Proof. *)
-(*   iMod (own_alloc (gmap_view_auth 1 (σ : gmap L (leibnizO V)))) as (γ) "Hσ". *)
-(*   { exact: gmap_view_auth_valid.  } *)
-(*   (* iExists (GenNetworkGS _ _ _ γ). *) *)
-(*   done. *)
-(* Qed. *)

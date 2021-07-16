@@ -18,8 +18,8 @@ Import uPred.
 (* See [Stack Item 4 : Mutable references] *)
 (* Section 8 : Putting logical atomicity to work *)
 
-(** A general logically atomic interface for a heap. *)
-Class atomic_heap {Σ} `{!chanG Σ} := AtomicHeap {
+(** A general logically atomic interface for mutable references. *)
+Class mut_ref {Σ} `{!chanG Σ} := MutRef {
   (* -- operations -- *)
   ref : val;
   get : val;
@@ -41,7 +41,7 @@ Class atomic_heap {Σ} `{!chanG Σ} := AtomicHeap {
       <<< if decide (v = v1) then mapsto r v2 else mapsto r v,
           RET (v, #if decide (v = v1) then TRUE else FALSE) >>>;
 }.
-Global Arguments atomic_heap _ {_}.
+Global Arguments mut_ref _ {_}.
 
 Definition expr := chan_lang.expr.
 
@@ -171,7 +171,7 @@ Section proof.
 
 End proof.
 
-Definition chan_mutref `{!chanG Σ} : atomic_heap Σ :=
+Definition chan_mutref `{!chanG Σ} : mut_ref Σ :=
   {|
     ref_spec := chan_ref_spec;
     get_spec := chan_get_spec;
