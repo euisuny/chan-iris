@@ -1,6 +1,6 @@
 From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
-From iris.algebra Require Export ofe.
+From iris.algebra Require Export ofe gmultiset.
 From iris.program_logic Require Export language ectx_language ectxi_language.
 From iris.heap_lang Require Export locations.
 
@@ -238,7 +238,7 @@ Proof. refine (inj_countable of_val to_val _); auto using to_of_val. Qed.
 
 
 Record state : Type := {
-  chan: gmap loc (gset val);
+  chan: gmap loc (gmultiset val);
 }.
 Global Instance state_inhabited : Inhabited state :=
   populate {|
@@ -309,7 +309,7 @@ Definition subst' (mx : binder) (v : val) : expr → expr :=
   match mx with BNamed x => subst x v | BAnon => id end.
 
 (** The stepping relation *)
-Definition state_upd_chan (f: gmap loc (gset val) → gmap loc (gset val)) (σ: state) : state :=
+Definition state_upd_chan (f: gmap loc (gmultiset val) → gmap loc (gmultiset val)) (σ: state) : state :=
   {| chan := f σ.(chan)|}.
 Global Arguments state_upd_chan !_ /.
 
@@ -389,8 +389,7 @@ Inductive head_step : expr → state → list observation → expr → state →
       σ.(chan) !! c = Some $ M ->
       head_step (Send (Val $ LitV $ LitLoc c) (Val v)) σ
                 []
-                (* TODO : use multiset union operation \uplus *)
-                (Val $ LitV LitUnit) (state_upd_chan <[c := M ∪ {[ v ]}]> σ)
+                (Val $ LitV LitUnit) (state_upd_chan <[c := M ⊎ {[+ v +]}]> σ)
                 []
   | TryRecvNoneS σ c:
       σ.(chan) !! c = Some $ empty ->
@@ -401,7 +400,7 @@ Inductive head_step : expr → state → list observation → expr → state →
       σ.(chan) !! c = Some $ M ->
       head_step (TryRecv (Val $ LitV $ LitLoc c)) σ
                 []
-                (Some_ v) (state_upd_chan <[c := M∖{[v]}]> σ)
+                (Some_ v) (state_upd_chan <[c := M∖{[+ v +]}]> σ)
                 [].
 
 (** Basic properties about the language *)

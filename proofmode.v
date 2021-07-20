@@ -119,7 +119,7 @@ Qed.
 Lemma tac_wp_send `{!chanG Σ} Δ Δ' s E i K l m vl Φ :
   MaybeIntoLaterNEnvs 1 Δ Δ' →
   envs_lookup i Δ' = Some (false, l ↦ vl)%I →
-  match envs_simple_replace i false (Esnoc Enil i (l ↦ (vl ∪ {[m]}))) Δ' with
+  match envs_simple_replace i false (Esnoc Enil i (l ↦ (vl ⊎ {[+m+]}))) Δ' with
   | Some Δ'' => envs_entails Δ'' (WP fill K (Val $ #()) @ s; E {{ Φ }})
   | None => False
   end ->

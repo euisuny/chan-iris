@@ -98,7 +98,7 @@ Section proof.
 
   (* IY: Are we missing another invariant here? Something like [is_stack]? *)
   Lemma chan_ref_spec (v : val) :
-    {{{ True }}} chan_ref v {{{ l, RET LitV (LitLoc l); l ↦ {[v]} }}}.
+    {{{ True }}} chan_ref v {{{ l, RET LitV (LitLoc l); l ↦ {[+v+]} }}}.
   Proof.
     iIntros (Φ) "_ HΦ".
     (* iLöb as "IH". *)
@@ -110,54 +110,4 @@ Section proof.
     - wp_seq. iModIntro. iApply "HΦ".
   Admitted.
 
-  Lemma chan_set_spec (r : loc) (v : val):
-    ⊢ <<< ∀ w, r ↦ {[w]} >>> chan_set #r v @ ⊤ <<< r ↦ {[v]}, RET #() >>>.
-  Proof.
-    iIntros (Φ) "HΦ".
-    iLöb as "IH".
-    wp_lam. wp_pures.
-    unfold rpc. wp_lam. wp_pures.
-    wp_bind (newch)%E.
-    iMod "HΦ" as (M) "[Hl [Hclose _]]".
-    iApply wp_newch; first by done.
-    iNext. iIntros (l) "H".
-    iMod ("Hclose" with "Hl") as "HΦ".
-    iModIntro. wp_pures.
-    awp_apply awp_send.
-    iApply (aacc_aupd_commit with "HΦ"); first done.
-    iIntros (v') "H↦".
-    iAaccIntro with "H↦"; first by eauto with iFrame.
-    iIntros "HΦ !>". iSplitR.
-    2 : {
-      iIntros "_ !>". wp_pures.
-      awp_apply awp_recv.
-
-      (* IY: No more [AU] Hypotheses in context. *)
-      (* iApply (aacc_aupd_commit with "IH"); first done. *)
-  Admitted.
-
-  Lemma chan_get_spec (r : loc) :
-    ⊢ <<< ∀ v, r ↦ {[v]} >>> chan_get #r @ ⊤ <<< r ↦ {[v]}, RET v >>>.
-  Proof.
-    iIntros (Φ) "HΦ".
-    iLöb as "IH".
-    wp_lam. wp_pures.
-    unfold rpc. wp_lam. wp_pures.
-    wp_bind (newch)%E.
-    iMod "HΦ" as (M) "[Hl [Hclose _]]".
-    iApply wp_newch; first by done.
-    iNext. iIntros (l) "H".
-    iMod ("Hclose" with "Hl") as "HΦ".
-    iModIntro. wp_pures.
-    awp_apply awp_send without "HΦ".
-  Admitted.
-
 End proof.
-
-Definition chan_mutref `{!chanG Σ} :=
-  {|
-    ref_spec := chan_ref_spec;
-    get_spec := chan_get_spec;
-    set_spec := chan_set_spec;
-    (* cas_spec := chan_cas_spec; *)
-  |}.

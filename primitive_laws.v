@@ -8,7 +8,7 @@ From iris.base_logic.lib Require Import invariants.
 Class chanG Σ :=
   ChanG {
       chan_invG : invGS Σ;
-      chan_gen_networkG :> gen_networkGS loc (gset val) Σ;
+      chan_gen_networkG :> gen_networkGS loc (gmultiset val) Σ;
     }.
 
 Global Instance chan_irisG `{!chanG Σ} : irisGS chan_lang Σ :=
@@ -42,11 +42,11 @@ Section proof.
   Qed.
 
   (* Section 7.2 Proof of blocking receive (10) *)
-  Lemma twp_tryrecv (l : loc) (v' : gset chan_lang.val) s E :
+  Lemma twp_tryrecv (l : loc) (v' : gmultiset chan_lang.val) s E :
     [[{ l ↦ v' }]]
       tryrecv l @ s; E
     [[{ (x : val), RET x;
-        ((∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
+        ((∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[+ v +]}) ∧ ⌜ v ∈ v' ⌝) ∨
         (⌜x = NONEV⌝ ∧ l ↦ ∅))
     }]].
   Proof.
@@ -60,12 +60,12 @@ Section proof.
       + iPureIntro. eexists _, _, _. cbn. econstructor.
         rewrite H. rewrite e. reflexivity.
       + iPureIntro.
-        assert (exists M v, v' = M ∪ {[v]} /\ v ∉ M).
-        { unfold_leibniz. eapply set_choose in n. destruct n.
-          exists (v' ∖ {[x]}). exists x.
-          rewrite difference_union.
-          set_solver. }
-        destruct H0 as (? & ? & ? & ?).
+        assert (exists M v, v' = M ⊎ {[+ v +]}).
+        {
+          eapply gmultiset_choose in n. destruct n.
+          exists (v' ∖ {[+ x +]}). exists x.
+          multiset_solver. }
+        destruct H0 as (? & ? & ?).
         eexists _, _, _. cbn. rewrite H0 in H. eapply TryRecvSomeS; eauto.
         Unshelve. 2 : exact x0. set_solver.
     - iIntros (κ v2 σ2 efs Hstep); inv_head_step.
@@ -79,11 +79,11 @@ Section proof.
           iSplit; first by done. iSplit; eauto with set_solver.
   Qed.
 
-  Lemma wp_tryrecv (l : loc) (v' : gset chan_lang.val) s E:
+  Lemma wp_tryrecv (l : loc) (v' : gmultiset chan_lang.val) s E:
     {{{ ▷ l ↦ v' }}}
       tryrecv l @ s; E
     {{{ (x : val), RET x;
-        ((∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝) ∨
+        ((∃ v, ⌜x = SOMEV v⌝ ∧ l ↦ (v'∖{[+ v +]}) ∧ ⌜ v ∈ v' ⌝) ∨
         (⌜x = NONEV⌝ ∧ l ↦ ∅))
     }}}.
   Proof.
@@ -91,22 +91,21 @@ Section proof.
     iApply (twp_tryrecv with "H") ; [by auto..|]. iIntros (x) "H HΦ". by iApply "HΦ".
   Qed.
 
-  Lemma twp_tryrecv_suc (l : loc) (v' : gset chan_lang.val) s E :
+  Lemma twp_tryrecv_suc (l : loc) (v' : gmultiset chan_lang.val) s E :
     v' ≠ ∅ ->
     [[{ l ↦ v'  }]]
       tryrecv l @ s; E
-    [[{ v, RET SOMEV v; l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝ }]].
+    [[{ v, RET SOMEV v; l ↦ (v'∖{[+ v +]}) ∧ ⌜ v ∈ v' ⌝ }]].
   Proof.
     iIntros (neq Φ) "Pre Post". iApply twp_lift_atomic_head_step_no_fork; first done.
     iIntros (σ1 ns κs nt) "Hσ !>". iDestruct (gen_network_valid with "Hσ Pre") as %?.
     iSplit.
     - iPureIntro.
-      assert (exists M v, v' = M ∪ {[v]} /\ v ∉ M).
-      { unfold_leibniz. eapply set_choose in neq. destruct neq.
-        exists (v' ∖ {[x]}). exists x.
-        rewrite difference_union.
-        set_solver. }
-      destruct H0 as (? & ? & ? & ?).
+      assert (exists M v, v' = M ⊎ {[+ v +]}).
+      { eapply gmultiset_choose in neq. destruct neq.
+        exists (v' ∖ {[+x+]}). exists x.
+        multiset_solver. }
+      destruct H0 as (? & ? & ?).
       rewrite H0 in H. eauto.
       eexists _, _, _. cbn.
       eapply TryRecvSomeS; eauto.
@@ -120,7 +119,7 @@ Section proof.
       + done.
   Qed.
 
-  Lemma twp_tryrecv_fail (l : loc) (v' : gset chan_lang.val) s E :
+  Lemma twp_tryrecv_fail (l : loc) (v' : gmultiset chan_lang.val) s E :
     v' = ∅ ->
     [[{ l ↦ v' }]] tryrecv l @ s; E [[{ RET NONEV; l ↦ ∅ }]].
   Proof.
@@ -136,17 +135,17 @@ Section proof.
       + set_solver.
   Qed.
 
-  Lemma wp_tryrecv_suc (l : loc) (v' : gset chan_lang.val) s E :
+  Lemma wp_tryrecv_suc (l : loc) (v' : gmultiset chan_lang.val) s E :
     v' ≠ ∅ ->
     {{{ ▷ l ↦ v' }}}
       tryrecv l @ s; E
-    {{{ v, RET SOMEV v; l ↦ (v'∖{[v]}) ∧ ⌜ v ∈ v' ⌝ }}}.
+    {{{ v, RET SOMEV v; l ↦ (v'∖{[+v+]}) ∧ ⌜ v ∈ v' ⌝ }}}.
   Proof.
     iIntros (neq Φ) ">H HΦ". iApply (twp_wp_step with "HΦ").
     iApply (twp_tryrecv_suc with "H"); [by auto..|]; iIntros (v) "H HΦ". by iApply "HΦ".
   Qed.
 
-  Lemma wp_tryrecv_fail (l : loc) (v' : gset chan_lang.val) s E :
+  Lemma wp_tryrecv_fail (l : loc) (v' : gmultiset chan_lang.val) s E :
     v' = ∅ ->
     {{{ ▷ l ↦ v' }}} tryrecv l @ s; E {{{ RET NONEV; l ↦ ∅ }}}.
   Proof.
@@ -154,23 +153,23 @@ Section proof.
     iApply (twp_tryrecv_fail with "H"); [by auto..|]; iIntros "H HΦ". by iApply "HΦ".
   Qed.
 
-  Lemma twp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) s E:
+  Lemma twp_send (c : loc) (M : gmultiset chan_lang.val) (m : chan_lang.val) s E:
     [[{ c ↦ M }]] send(c, m) @ s; E
-    [[{ RET #(); c ↦ (M ∪ {[m]}) }]].
+    [[{ RET #(); c ↦ (M ⊎ {[+m+]}) }]].
   Proof.
     iIntros (Φ) "Pre Post".
     iApply twp_lift_atomic_head_step_no_fork; first done.
     iIntros (σ1 ns κs nt) "Hσ !>". iDestruct (gen_network_valid with "Hσ Pre") as %?.
     iSplit; first by eauto with head_step.
     iIntros (κ v2 σ2 efs Hstep); inv_head_step.
-    iMod (gen_network_update _ _ _ (M ∪ {[m]}) with "Hσ Pre") as "[Hσ Hl]".
+    iMod (gen_network_update _ _ _ (M ⊎ {[+m+]}) with "Hσ Pre") as "[Hσ Hl]".
     iModIntro. iSplit; first done. iSplit; first done. iFrame. by iApply "Post".
   Qed.
 
-  Lemma wp_send (c : loc) (M : gset chan_lang.val) (m : chan_lang.val) s E:
+  Lemma wp_send (c : loc) (M : gmultiset chan_lang.val) (m : chan_lang.val) s E:
     {{{ ▷ c ↦ M }}}
       send(c, m) @ s; E
-    {{{ RET #(); c ↦ (M ∪ {[m]}) }}}.
+    {{{ RET #(); c ↦ (M ⊎ {[+m+]}) }}}.
   Proof.
     iIntros (Φ) ">H HΦ". iApply (twp_wp_step with "HΦ").
     iApply (twp_send with "H"); [by auto..|]; iIntros "H HΦ". by iApply "HΦ".
