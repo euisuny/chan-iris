@@ -1,5 +1,6 @@
 (* An atomic heap defined over the channel primitives in the language. *)
 
+From iris.algebra Require Import excl.
 From iris.bi.lib Require Import fractional.
 From iris.bi Require Import atomic derived_laws interface.
 From iris.proofmode Require Import coq_tactics reduction spec_patterns.
@@ -9,14 +10,26 @@ From iris.prelude Require Import options.
 From iris.proofmode Require Export tactics.
 From iris Require Import proofmode.environments
                          base_logic.lib.invariants.
+(* TODO: See style guide for recommended import order *)
+
+Import uPred.
 
 From chanlang Require Import
-     class_instances lang notation network_ra tactics primitive_laws proofmode localchan.
-Import uPred.
+     locations
+     class_instances
+     lang
+     notation
+     network_ra
+     tactics
+     primitive_laws
+     proofmode
+     localchan.
+Set Default Proof Using "Type".
 
 (* See [Stack Item 4 : Mutable references] *)
 (* Section 8 : Putting logical atomicity to work *)
 
+(* The {!chanG Σ} refers to the resource algebra available in the context. *)
 (** A general logically atomic interface for mutable references. *)
 Class mut_ref {Σ} `{!chanG Σ} := MutRef {
   (* -- operations -- *)
@@ -81,10 +94,30 @@ Definition chan_ref : val :=
     let: "r" := newch in
     Fork (srv "r" "e");; "r".
 
+(* CMRA *)
+(* IY: Either we have this [refG] or we give another field to chanG.. *)
+Class refG Σ := RefG { ref_tokG :> inG Σ (exclR unitO) }.
+Definition refΣ : gFunctors := #[GFunctor (exclR unitO)].
+
+Global Instance subG_refΣ {Σ} : subG refΣ Σ → refG Σ.
+Proof. solve_inG. Qed.
+
 Section proof.
 
-  Context `{!chanG Σ}.
+  Context `{!chanG Σ, !refG Σ}.
   Notation iProp := (iProp Σ).
+
+  Let N := nroot .@ "mutref".
+
+  (* First, we define a "mapsto" operator for the channels. In this case, the
+   mapsto will correspond to a channel in the threadpool which stores messages
+   that are of the form "GET" and "SET w". *)
+
+  Definition ref_inv (γ : gname) (l : loc) (R : iProp) : iProp :=
+    ∃ (v : gmultiset val), l ↦ v ∗ own γ (Excl ()) ∗ R.
+
+  Definition is_ref (γ : gname) (lk : val) (R : iProp) : iProp :=
+    ∃ l: loc, ⌜lk = #l⌝ ∧ inv N (ref_inv γ l R).
 
   Lemma srv_spec (r v : val) :
     {{{ True }}} srv r v {{{ RET #(); True }}}.

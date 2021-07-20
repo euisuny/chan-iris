@@ -2,7 +2,7 @@ From stdpp Require Export binders strings.
 From stdpp Require Import gmap.
 From iris.algebra Require Export ofe gmultiset.
 From iris.program_logic Require Export language ectx_language ectxi_language.
-From iris.heap_lang Require Export locations.
+From chanlang Require Import locations.
 
 Delimit Scope expr_scope with E.
 Delimit Scope val_scope with V.
@@ -269,7 +269,7 @@ Inductive ectx_item :=
   | SendRCtx (e : expr)
   | TryRecvCtx.
 
-Fixpoint fill_item (Ki : ectx_item) (e : expr) : expr :=
+Definition fill_item (Ki : ectx_item) (e : expr) : expr :=
   match Ki with
   | AppLCtx v2 => App e (of_val v2)
   | AppRCtx e1 => App e1 e

@@ -1,5 +1,6 @@
 -Q . chanlang
 
+locations.v
 lang.v
 notation.v
 network_ra.v

@@ -1,6 +1,7 @@
 From iris.program_logic Require Import language.
 From chanlang Require Import lang.
 From iris.prelude Require Import options.
+From chanlang Require Import locations.
 
 (** Coercions to make programs easier to type. *)
 Coercion LitInt : Z >-> base_lit.

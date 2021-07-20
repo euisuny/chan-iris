@@ -5,12 +5,11 @@ From iris.proofmode Require Export tactics.
 From iris.program_logic Require Import atomic weakestpre.
 From iris.prelude Require Import options.
 From iris.proofmode Require Export tactics.
-(* IY: What's the difference between [atomic] at [iris.program_logic]
- and [bi.lib]? *)
 Import uPred.
 
 From chanlang Require Import
-     class_instances lang notation network_ra tactics primitive_laws proofmode.
+     locations class_instances lang notation network_ra tactics primitive_laws
+     proofmode.
 Set Default Proof Using "Type".
 
 (* In the language definitions, we had asynchronous channels.

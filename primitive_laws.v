@@ -2,13 +2,15 @@ From iris.program_logic Require Export ectx_lifting total_ectx_lifting weakestpr
 From iris.proofmode Require Import tactics.
 From chanlang Require Import lang notation network_ra tactics.
 From iris Require Import options.
-From iris.base_logic.lib Require Import invariants.
+From iris.base_logic.lib Require Import invariants gen_inv_heap.
+From chanlang Require Import locations.
 
 (* Ghost state for reasoning about chan_lang threadpool. *)
 Class chanG Σ :=
   ChanG {
       chan_invG : invGS Σ;
       chan_gen_networkG :> gen_networkGS loc (gmultiset val) Σ;
+      chan_inv_heapG :> inv_heapGS loc (gmultiset val) Σ;
     }.
 
 Global Instance chan_irisG `{!chanG Σ} : irisGS chan_lang Σ :=
@@ -19,6 +21,15 @@ Global Instance chan_irisG `{!chanG Σ} : irisGS chan_lang Σ :=
   num_laters_per_step _ := 0;
   state_interp_mono _ _ _ _ := fupd_intro _ _
 }.
+
+Section definitions.
+  Context `{!chanG Σ}.
+
+  Definition inv_mapsto_own (l : loc) (v : gmultiset val) (I : gmultiset val → Prop) : iProp Σ :=
+    inv_mapsto_own l v I.
+  Definition inv_mapsto (l : loc) (I : gmultiset val → Prop) : iProp Σ :=
+    inv_mapsto l I.
+End definitions.
 
 Section proof.
 
