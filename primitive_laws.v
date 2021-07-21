@@ -6,6 +6,8 @@ From iris.base_logic.lib Require Import invariants gen_inv_heap.
 From chanlang Require Import locations.
 
 (* Ghost state for reasoning about chan_lang threadpool. *)
+(* TODO: rename to [chanGS] for singleton, need to show preGS (look at
+  [adequacy.v] in heaplang) *)
 Class chanG Σ :=
   ChanG {
       chan_invG : invGS Σ;
