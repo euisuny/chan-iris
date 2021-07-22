@@ -121,6 +121,9 @@ Section proof.
     ∃ M, l ↦ M ∗
           [∗ mset] m ∈ M, ∃ (r : loc) (w : option val) (v : val),
             ⌜m = (#r, option_to_val w)%V⌝ ∗
+            (* Morally, we want something like [is_ref γ' r] so that we can get
+             ownership of the channels we have received and thus [send] messages
+             on that channel. *)
             ghost_var γ (1/2) v.
 
   (* "Client state" *)
@@ -154,6 +157,7 @@ Section proof.
     iAaccIntro with "Hrc".
     { eauto with iFrame. }
     iIntros (w) "[? %IN]". set_solver.
+    (* A somewhat odd way to conclude the proof, but it works.. *)
   Qed.
 
   Local Lemma chan_srv_spec (l : loc) (v : val) γ:
@@ -164,6 +168,8 @@ Section proof.
     iIntros "#Hr !# %Φ Hl HΦ".
     wp_lam. iLöb as "IH" forall (v).
     wp_pures.
+    (* Can we specify in [awp_apply] what invariant we can state for the
+     returned value of the computation? *)
     awp_apply awp_recv.
     iInv "Hr" as (M) "[>Hl' HM]".
     iAaccIntro with "Hl'".
@@ -173,12 +179,35 @@ Section proof.
     iModIntro.
     iDestruct "Hup" as "[Hlup %Hw]".
     iSplitL "HM Hlup".
-    { iNext. rewrite /ref_inv.
+
+    {(* Re-establish [ref_inv] for channel [l]. *)
+      iNext. rewrite /ref_inv.
       iExists (M ∖ {[+ w +]}). iFrame.
       rewrite (big_sepMS_delete _ M w Hw).
       iDestruct "HM" as "[? ?]"; done. }
+
     wp_pures.
-    (* invariant that the messages received are of a certain shape *)
+    (* TODO : How do we enforce this from [awp_recv]? We need all the other
+     hypotheses for the [iSplitL] left case, and we're left with no information
+     about [w]. Can we duplicate the hypothesis given from "Hup"? *)
+    assert (TEMP: exists r v, w = (#r, option_to_val v)%V).
+    { admit. }
+    destruct TEMP as (r & x & ->).
+    do 2 (wp_proj; wp_let). wp_pures.
+    destruct x; wp_match.
+    { wp_pures. wp_bind (Send _ _).
+      iInv "Hr" as (M') "[>Hl' HM]".
+      (* Need invariant that the messages received are of a certain shape --
+       do we need to change [recv]?
+
+       Namely, #r needs to be a channel that we can own. *)
+      admit.
+    }
+    { wp_pures. wp_bind (Send _ _).
+      (* Same problem in this branch. *)
+      admit.
+    }
+    (* wp_apply (wp_send with "Hl'"). *)
   Abort.
 
   Lemma chan_set_spec (v : val) γ l:
