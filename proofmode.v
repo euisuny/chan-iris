@@ -241,6 +241,9 @@ Tactic Notation "wp_rec" :=
   clear H.
 Tactic Notation "wp_lam" := wp_rec; auto.
 Tactic Notation "wp_seq" := wp_pure (Rec BAnon BAnon _); wp_lam.
+Tactic Notation "wp_let" := wp_pure (Rec BAnon (BNamed _) _); wp_lam.
+Tactic Notation "wp_proj" := wp_pure (Fst _) || wp_pure (Snd _).
+
 
 Ltac wp_pures :=
   iStartProof;

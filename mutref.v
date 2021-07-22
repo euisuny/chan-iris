@@ -130,6 +130,9 @@ Section proof.
   Definition is_ref (γ : gname) (l : loc) : iProp :=
     inv N (ref_inv γ l).
 
+  Global Instance is_ref_persistent γ l : Persistent (is_ref γ l).
+  Proof. apply _. Qed.
+
   Lemma chan_get_spec (v : val) l γ:
     is_ref γ l -∗
     {{{ ref_mapsto γ l v }}} chan_get #l @ ⊤ {{{ RET v ; ref_mapsto γ l v }}}.
@@ -150,7 +153,8 @@ Section proof.
     awp_apply awp_recv.
     iAaccIntro with "Hrc".
     { eauto with iFrame. }
-  Abort.
+    iIntros (w) "[? %IN]". set_solver.
+  Qed.
 
   Local Lemma chan_srv_spec (l : loc) (v : val) γ:
     is_ref γ l -∗
@@ -159,49 +163,59 @@ Section proof.
     (* Note : % moves things to the Coq context *)
     iIntros "#Hr !# %Φ Hl HΦ".
     wp_lam. iLöb as "IH" forall (v).
+    wp_pures.
+    awp_apply awp_recv.
+    iInv "Hr" as (M) "[>Hl' HM]".
+    iAaccIntro with "Hl'".
+    { iFrame. iIntros. iModIntro. iNext.
+      rewrite /ref_inv. iExists M. iFrame. }
+    iIntros (w) "Hup".
+    iModIntro.
+    iDestruct "Hup" as "[Hlup %Hw]".
+    iSplitL "HM Hlup".
+    { iNext. rewrite /ref_inv.
+      iExists (M ∖ {[+ w +]}). iFrame.
+      rewrite (big_sepMS_delete _ M w Hw).
+      iDestruct "HM" as "[? ?]"; done. }
+    wp_pures.
+    (* invariant that the messages received are of a certain shape *)
   Abort.
 
-  (* TODO *)
   Lemma chan_set_spec (v : val) γ l:
-    {{{ is_ref γ l }}} chan_set #l v @ ⊤ {{{ RET #() ; ref_mapsto γ l v}}}.
+    is_ref γ l -∗
+    {{{ ∀ w, ref_mapsto γ l w }}} chan_set #l v @ ⊤ {{{ RET #() ; ref_mapsto γ l v }}}.
   Proof.
-    iIntros (Φ) "Hl HΦ".
-    iLöb as "IH".
-    wp_lam.
-    rewrite /rpc.
+    iIntros "#Hr !#" (Φ) "Hl HΦ".
+    wp_lam. rewrite /rpc.
     wp_pures. wp_apply wp_newch; first done.
-    (* Reply channel *)
-    iIntros (r) "Hr". wp_pures.
-    iDestruct "Hl" as (x) "[Hl Ho]".
-    wp_apply (wp_send with "Hl").
-    iIntros "Hl". wp_pures.
-    rewrite /recv. wp_rec.
-    iAssert (is_ref γ l)%I with "[Ho Hl]" as "Hl". {
-      rewrite /is_ref. iExists _. iSplitL "Hl"; done.
+    iIntros (rc) "Hrc". wp_pures.
+    wp_bind (chan_lang.Send _ _).
+    iInv "Hr" as (M) "[>Hl' HM]".
+    wp_apply (wp_send with "Hl'").
+    iIntros "Hl' !>". iSplitL "Hl' HM Hl".
+    { iNext. iExists _. iFrame "Hl'".
+      rewrite comm. iApply big_sepMS_insert.
+      iFrame "HM". iExists _, (Some v), _. auto.
     }
-    iSpecialize ("IH" with "Hl HΦ").
-
-    (* iMod (inv_alloc N _ (ref_inv γ l ∅ True) with "[-HΦ]") as "#Hinv". *)
-    (* { iIntros "!>". rewrite /ref_inv. iSplit. 2 : { iSplit; done. } *)
-    (*   iIntros (Φ'). iModIntro. iIntros "_ H". *)
-    (* iDestruct "IH" as "[H H']". *)
-  Abort.
+    wp_pures.
+    awp_apply awp_recv.
+    iAaccIntro with "Hrc".
+    { eauto with iFrame. }
+    iIntros (w) "[? %IN]". set_solver.
+    Unshelve. eauto.
+  Qed.
 
   Lemma chan_ref_spec (v : val) :
-    {{{ True }}} chan_ref v {{{ l γ, RET LitV (LitLoc l); ref_inv γ l v True}}}.
+    {{{ True }}} chan_ref v {{{ l γ, RET LitV (LitLoc l); ref_inv γ l }}}.
   Proof.
     iIntros (Φ) "_ HΦ".
     wp_lam.
     wp_apply wp_newch; first done.
     iIntros (l) "Hl". wp_pures.
     iMod (own_alloc (Excl ())) as (γ) "Hγ"; first done.
-    iMod (inv_alloc N _ (ref_inv γ l ∅ True) with "[-HΦ]") as "#Hinv".
-    { iIntros "!>". rewrite /ref_inv. iSplit. 2 : { iSplit; done. }
-      iIntros (Φ'). iModIntro. iIntros "_ H".
-    (* iInv N as ([]) "[Hl HR]". *)
-    (* wp_apply (wp_fork with "[]"). *)
-    (* - iNext. by iApply srv_spec. *)
-    (* - wp_seq. iModIntro. iApply "HΦ". *)
+    (* iMod (inv_alloc N _ (ref_inv γ l ∅ True) with "[-HΦ]") as "#Hinv". *)
+    (* { iIntros "!>". rewrite /ref_inv. iSplit. 2 : { iSplit; done. } *)
+    (*   iIntros (Φ'). iModIntro. iIntros "_ H". *)
   Admitted.
 
 End proof.
