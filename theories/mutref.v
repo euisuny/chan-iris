@@ -204,10 +204,11 @@ Section proof.
       admit.
     }
     { wp_pures. wp_bind (Send _ _).
+
       (* Same problem in this branch. *)
       admit.
     }
-    (* wp_apply (wp_send with "Hl'"). *)
+
   Abort.
 
   Lemma chan_set_spec (v : val) γ l:
