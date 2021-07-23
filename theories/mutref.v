@@ -1,35 +1,18 @@
 (* An atomic heap defined over the channel primitives in the language. *)
-
 From iris.algebra Require Import excl.
-From iris.bi.lib Require Import fractional.
-From iris.bi Require Import atomic derived_laws interface.
-From iris.proofmode Require Import coq_tactics reduction spec_patterns.
-From iris.proofmode Require Export tactics.
-From iris.program_logic Require Import atomic weakestpre.
-From iris.prelude Require Import options.
-From iris.proofmode Require Export tactics.
-From iris Require Import proofmode.environments
-                         base_logic.lib.invariants.
-From iris.base_logic Require Import lib.ghost_var.
-(* TODO: See style guide for recommended import order *)
-
-Import uPred.
-
+From iris.proofmode Require Import
+     tactics coq_tactics reduction spec_patterns environments.
+From iris.base_logic Require Import lib.ghost_var lib.invariants.
+From iris.program_logic Require Export atomic weakestpre.
 From chanlang Require Import
-     locations
-     class_instances
-     lang
-     notation
-     network_ra
-     tactics
-     primitive_laws
-     proofmode
-     localchan.
-Set Default Proof Using "Type".
+     locations class_instances lang proofmode notation
+     network_ra tactics primitive_laws localchan.
+From iris.prelude Require Import options.
 
 (* See [Stack Item 4 : Mutable references] *)
 (* Section 8 : Putting logical atomicity to work *)
 
+Notation val := chan_lang.val.
 (* The {!chanG Σ} refers to the resource algebra available in the context. *)
 (** A general logically atomic interface for mutable references. *)
 Class mut_ref {Σ} `{!chanG Σ} := MutRef {

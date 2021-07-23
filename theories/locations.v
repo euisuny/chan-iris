@@ -1,6 +1,5 @@
 From stdpp Require Import countable numbers gmap.
-From iris.prelude Require Export prelude.
-From iris.prelude Require Import options.
+From iris.prelude Require Export prelude options.
 
 Record loc := Loc { loc_car : Z }.
 

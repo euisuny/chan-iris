@@ -1,17 +1,12 @@
 From iris.proofmode Require Import coq_tactics reduction spec_patterns.
 From iris.proofmode Require Export tactics.
 From iris.program_logic Require Import atomic weakestpre.
-From iris.prelude Require Import options.
-From iris.proofmode Require Export tactics.
-(* IY: What's the difference between [atomic] at [iris.program_logic]
- and [bi.lib]? *)
-(* use program_logic *)
-(* bi -> program_logic -> *)
-From iris.bi Require Import atomic derived_laws interface.
-Import uPred.
-
 From chanlang Require Import
      class_instances lang notation network_ra tactics primitive_laws.
+From iris.prelude Require Import options.
+
+Import uPred.
+
 Set Default Proof Using "Type".
 
 Notation val := chan_lang.val.

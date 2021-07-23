@@ -5,7 +5,6 @@ From iris.proofmode Require Export tactics.
 From iris.program_logic Require Import atomic weakestpre.
 From iris.prelude Require Import options.
 From iris.proofmode Require Export tactics.
-Import uPred.
 
 From chanlang Require Import
      locations class_instances lang notation network_ra tactics primitive_laws
