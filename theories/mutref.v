@@ -99,21 +99,26 @@ Section proof.
     | Some v => SOMEV v
     end.
 
+  Notation chan := loc.
+
   (* "Shared state" *)
-  Definition ref_inv (γ : gname) (l : loc) : iProp :=
-    ∃ M, l ↦ M ∗
-          [∗ mset] m ∈ M, ∃ (r : loc) (w : option val) (v : val),
+  Definition ref_inv (γ : gname) (s : chan) : iProp :=
+    ∃ (Ms : gmultiset val),
+      (* server *)
+      s ↦ Ms ∗
+          ([∗ mset] m ∈ Ms, ∃ (r : chan) (w : option val) (v : val),
             ⌜m = (#r, option_to_val w)%V⌝ ∗
-            (* Morally, we want something like [is_ref γ' r] so that we can get
-             ownership of the channels we have received and thus [send] messages
-             on that channel. *)
-            ghost_var γ (1/2) v.
+            ghost_var γ (1/2) v) ∗
+          (∃ (r : chan) (Mr : gmultiset val),
+              r ↦ Mr ∗
+              [∗ mset] v ∈ Mr, ghost_var γ (1/2) v).
+
 
   (* "Client state" *)
-  Definition ref_mapsto (γ : gname) (l : loc) (v : val) : iProp :=
+  Definition ref_mapsto (γ : gname) (l : chan) (v : val) : iProp :=
     ghost_var γ (1/2) v.
 
-  Definition is_ref (γ : gname) (l : loc) : iProp :=
+  Definition is_ref (γ : gname) (l : chan) : iProp :=
     inv N (ref_inv γ l).
 
   Global Instance is_ref_persistent γ l : Persistent (is_ref γ l).
@@ -126,15 +131,21 @@ Section proof.
     iIntros "#Hr !#" (Φ) "Hl HΦ".
     wp_lam. rewrite /rpc.
     wp_pures. wp_apply wp_newch; first done.
-    (* Introduce the reply channel *)
-    iIntros (rc) "Hrc". wp_pures.
+    iIntros (rc) "Hrc". (* reply channel *)
+    wp_pures.
     wp_bind (chan_lang.Send _ _).
     iInv "Hr" as (M) "[>Hl' HM]".
+    iDestruct "HM" as "[HR HM]".
     wp_apply (wp_send with "Hl'").
-    iIntros "Hl' !>". iSplitL "Hl' HM Hl".
-    { iNext. iExists _. iFrame "Hl'".
-      rewrite comm. iApply big_sepMS_insert.
-      iFrame "HM". iExists _, None, _. auto. }
+    iIntros "Hl' !>". iSplitL "Hl' HM Hl HR".
+    {
+      iNext. iExists _. iFrame "Hl'".
+      iSplitL "Hl HR".
+      { rewrite comm. rewrite big_sepMS_insert.
+        iFrame. iExists _, None, _. iSplit; auto. }
+      iFrame.
+    }
+
     wp_pures.
     awp_apply awp_recv.
     iAaccIntro with "Hrc".
@@ -151,39 +162,32 @@ Section proof.
     iIntros "#Hr !# %Φ Hl HΦ".
     wp_lam. iLöb as "IH" forall (v).
     wp_pures.
-    (* Can we specify in [awp_apply] what invariant we can state for the
-     returned value of the computation? *)
     awp_apply awp_recv.
-    iInv "Hr" as (M) "[>Hl' HM]".
+    iInv "Hr" as (M) "[>Hl' >[HM Hr']]".
     iAaccIntro with "Hl'".
     { iFrame. iIntros. iModIntro. iNext.
       rewrite /ref_inv. iExists M. iFrame. }
     iIntros (w) "Hup".
     iModIntro.
     iDestruct "Hup" as "[Hlup %Hw]".
-    iSplitL "HM Hlup".
+    rewrite (big_sepMS_delete _ M w Hw).
+    iDestruct "HM" as "[Hw HM]".
+    iDestruct "Hw" as (r' w' v') "[Hweq Hgv]".
+
+    iSplitL "HM Hlup Hr'".
 
     {(* Re-establish [ref_inv] for channel [l]. *)
       iNext. rewrite /ref_inv.
-      iExists (M ∖ {[+ w +]}). iFrame.
-      rewrite (big_sepMS_delete _ M w Hw).
-      iDestruct "HM" as "[? ?]"; done. }
+      iExists (M ∖ {[+ w +]}), _. iFrame. }
 
     wp_pures.
-    (* TODO : How do we enforce this from [awp_recv]? We need all the other
-     hypotheses for the [iSplitL] left case, and we're left with no information
-     about [w]. Can we duplicate the hypothesis given from "Hup"? *)
-    assert (TEMP: exists r v, w = (#r, option_to_val v)%V).
-    { admit. }
-    destruct TEMP as (r & x & ->).
-    do 2 (wp_proj; wp_let). wp_pures.
-    destruct x; wp_match.
-    { wp_pures. wp_bind (Send _ _).
-      iInv "Hr" as (M') "[>Hl' HM]".
-      (* Need invariant that the messages received are of a certain shape --
-       do we need to change [recv]?
+    iDestruct "Hweq" as "%Hweq". subst.
+    wp_pures.
 
-       Namely, #r needs to be a channel that we can own. *)
+    destruct w'; wp_match.
+    { wp_pures. wp_bind (Send _ _).
+      iInv "Hr" as (M' Mr') "[>Hl' >[Hr' HM]]".
+      wp_apply (wp_send with Hr').
       admit.
     }
     { wp_pures. wp_bind (Send _ _).
