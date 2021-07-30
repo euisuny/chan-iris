@@ -106,17 +106,20 @@ Section proof.
     ∃ (Ms : gmultiset val),
       (* server *)
       s ↦ Ms ∗
-          ([∗ mset] m ∈ Ms, ∃ (r : chan) (w : option val) (v : val),
-            ⌜m = (#r, option_to_val w)%V⌝ ∗
-            ghost_var γ (1/2) v) ∗
-          (∃ (r : chan) (Mr : gmultiset val),
-              r ↦ Mr ∗
-              [∗ mset] v ∈ Mr, ghost_var γ (1/2) v).
-
+          ([∗ mset] m ∈ Ms, ∃ (w : option val) (r : chan),
+          (* All messsages to sent to the server is a pair of [reply_channel]
+            and an indication of whether or not it is a GET/SET on the
+            reference *)
+              (* There is some value that the reference maps to. *)
+              (⌜m = (#r, option_to_val w)%V⌝ ∗
+              (∃ (v : val), (⌜option_to_val w = SOMEV v⌝ ∗ ghost_var γ (1/2) v) ∨ ⌜option_to_val w = NONEV⌝) ∗
+              (* There exists some reply channel that stores sent messages *)
+              ∃ Mr, r ↦ Mr)).
+            (* [∗ mset] v ∈ Mr, ghost_var γ (1/2) v). *)
 
   (* "Client state" *)
   Definition ref_mapsto (γ : gname) (l : chan) (v : val) : iProp :=
-    ghost_var γ (1/2) v.
+    ∃ (M : gmultiset val), l ↦ M ∗ ghost_var γ (1/2) v.
 
   Definition is_ref (γ : gname) (l : chan) : iProp :=
     inv N (ref_inv γ l).
@@ -129,74 +132,22 @@ Section proof.
     {{{ ref_mapsto γ l v }}} chan_get #l @ ⊤ {{{ RET v ; ref_mapsto γ l v }}}.
   Proof.
     iIntros "#Hr !#" (Φ) "Hl HΦ".
-    wp_lam. rewrite /rpc.
+    wp_lam.
+    rewrite /rpc.
     wp_pures. wp_apply wp_newch; first done.
     iIntros (rc) "Hrc". (* reply channel *)
     wp_pures.
     wp_bind (chan_lang.Send _ _).
-    iInv "Hr" as (M) "[>Hl' HM]".
-    iDestruct "HM" as "[HR HM]".
-    wp_apply (wp_send with "Hl'").
-    iIntros "Hl' !>". iSplitL "Hl' HM Hl HR".
-    {
-      iNext. iExists _. iFrame "Hl'".
-      iSplitL "Hl HR".
-      { rewrite comm. rewrite big_sepMS_insert.
-        iFrame. iExists _, None, _. iSplit; auto. }
-      iFrame.
-    }
-
-    wp_pures.
+    awp_apply awp_send.
+    iDestruct "Hl" as (M) "[Hl Hgv]".
+    iAaccIntro with "Hl".
+    { iFrame. iIntros. iModIntro. iExists _. done. }
+    iIntros "Hl' !>". wp_pures.
     awp_apply awp_recv.
     iAaccIntro with "Hrc".
     { eauto with iFrame. }
     iIntros (w) "[? %IN]". set_solver.
-    (* A somewhat odd way to conclude the proof, but it works.. *)
   Qed.
-
-  Local Lemma chan_srv_spec (l : loc) (v : val) γ:
-    is_ref γ l -∗
-    {{{ ghost_var γ (1/2) v }}} srv #l v @ ⊤ {{{ RET #(); False }}}.
-  Proof.
-    (* Note : % moves things to the Coq context *)
-    iIntros "#Hr !# %Φ Hl HΦ".
-    wp_lam. iLöb as "IH" forall (v).
-    wp_pures.
-    awp_apply awp_recv.
-    iInv "Hr" as (M) "[>Hl' >[HM Hr']]".
-    iAaccIntro with "Hl'".
-    { iFrame. iIntros. iModIntro. iNext.
-      rewrite /ref_inv. iExists M. iFrame. }
-    iIntros (w) "Hup".
-    iModIntro.
-    iDestruct "Hup" as "[Hlup %Hw]".
-    rewrite (big_sepMS_delete _ M w Hw).
-    iDestruct "HM" as "[Hw HM]".
-    iDestruct "Hw" as (r' w' v') "[Hweq Hgv]".
-
-    iSplitL "HM Hlup Hr'".
-
-    {(* Re-establish [ref_inv] for channel [l]. *)
-      iNext. rewrite /ref_inv.
-      iExists (M ∖ {[+ w +]}), _. iFrame. }
-
-    wp_pures.
-    iDestruct "Hweq" as "%Hweq". subst.
-    wp_pures.
-
-    destruct w'; wp_match.
-    { wp_pures. wp_bind (Send _ _).
-      iInv "Hr" as (M' Mr') "[>Hl' >[Hr' HM]]".
-      wp_apply (wp_send with Hr').
-      admit.
-    }
-    { wp_pures. wp_bind (Send _ _).
-
-      (* Same problem in this branch. *)
-      admit.
-    }
-
-  Abort.
 
   Lemma chan_set_spec (v : val) γ l:
     is_ref γ l -∗
@@ -207,19 +158,66 @@ Section proof.
     wp_pures. wp_apply wp_newch; first done.
     iIntros (rc) "Hrc". wp_pures.
     wp_bind (chan_lang.Send _ _).
-    iInv "Hr" as (M) "[>Hl' HM]".
-    wp_apply (wp_send with "Hl'").
-    iIntros "Hl' !>". iSplitL "Hl' HM Hl".
-    { iNext. iExists _. iFrame "Hl'".
-      rewrite comm. iApply big_sepMS_insert.
-      iFrame "HM". iExists _, (Some v), _. auto.
-    }
-    wp_pures.
+    iDestruct ("Hl" $! NONEV) as (M) "[Hl Hgv]".
+    wp_apply (wp_send with "Hl").
+    iIntros "Hl'". wp_pures.
     awp_apply awp_recv.
     iAaccIntro with "Hrc".
     { eauto with iFrame. }
     iIntros (w) "[? %IN]". set_solver.
-    Unshelve. eauto.
+  Qed.
+
+  Local Lemma chan_srv_spec (l : loc) (v : val) γ:
+    is_ref γ l -∗
+    {{{ ghost_var γ (1/2) v }}} srv #l v @ ⊤ {{{ RET #(); False }}}.
+  Proof.
+    (* Note : % moves things to the Coq context *)
+    iIntros "#Hr !# %Φ Hl HΦ".
+    wp_lam.
+    wp_pures.
+    iLöb as "IH" forall (v).
+
+    awp_apply awp_recv.
+    iInv "Hr" as (M) "[>Hl' >HM]".
+    iAaccIntro with "Hl'".
+    { iFrame. iIntros. iModIntro. iNext.
+      rewrite /ref_inv. iExists M. iFrame. }
+    iIntros (w) "Hup".
+    iModIntro.
+    iDestruct "Hup" as "[Hlup %Hw]".
+    rewrite (big_sepMS_delete _ M w Hw).
+
+    iDestruct "HM" as "[HM HMset]".
+    iSplitL "HMset Hlup".
+
+    {(* Re-establish [ref_inv] for channel [l]. *)
+      iNext. rewrite /ref_inv.
+      iExists (M ∖ {[+ w +]}). iFrame. }
+
+    wp_pures.
+    iDestruct "HM" as (w0 r) "[%Hweq [Hw HMr]]".
+    subst.
+    wp_pures.
+
+    destruct w0 eqn: Hw0; wp_match.
+    { wp_pures. wp_bind (Send _ _).
+      iDestruct "Hw" as (v1) "[[%Heq Hw]|%Heq]"; last done.
+      inversion Heq; subst.
+      iDestruct "HMr" as (Mr) "HMr".
+      wp_apply (wp_send with "HMr").
+      iIntros "Hrm".
+      wp_pures.
+      iApply ("IH" $! v1 with "Hw HΦ").
+    }
+    { wp_pures. wp_bind (Send _ _).
+      iDestruct "Hw" as (v1) "[[%Heq Hw]|%Heq]"; first done.
+      inversion Heq; subst.
+      iDestruct "HMr" as (Mr) "HMr".
+      wp_apply (wp_send with "HMr").
+      iIntros "Hrm".
+      wp_pures.
+      iApply ("IH" $! v with "Hl HΦ").
+    }
   Qed.
 
   Lemma chan_ref_spec (v : val) :
