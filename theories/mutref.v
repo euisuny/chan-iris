@@ -58,6 +58,7 @@ Definition srv : val :=
       end.
 (* LATER : implement CAS (equality/binop) *)
 
+(* Remove procedure call between a client and a server *)
 Definition rpc : val :=
   λ: "r" "m",
     let: "d" := newch in
@@ -101,87 +102,182 @@ Section proof.
 
   Notation chan := loc.
 
-  (* "Shared state" *)
-  Definition ref_inv (γ : gname) (s : chan) : iProp :=
+  Definition chan_inv (γ : gname) (s : chan) (R : val -> iProp): iProp :=
     ∃ (Ms : gmultiset val),
       (* server *)
-      s ↦ Ms ∗
-          ([∗ mset] m ∈ Ms, ∃ (w : option val) (r : chan),
-          (* All messsages to sent to the server is a pair of [reply_channel]
-            and an indication of whether or not it is a GET/SET on the
-            reference *)
-              (* There is some value that the reference maps to. *)
-              (⌜m = (#r, option_to_val w)%V⌝ ∗
-              (∃ (v : val), (⌜option_to_val w = SOMEV v⌝ ∗ ghost_var γ (1/2) v) ∨ ⌜option_to_val w = NONEV⌝) ∗
-              (* There exists some reply channel that stores sent messages *)
-              ∃ Mr, r ↦ Mr)).
-            (* [∗ mset] v ∈ Mr, ghost_var γ (1/2) v). *)
+      s ↦ Ms ∗ ([∗ mset] m ∈ Ms, R m).
+
+  (* All messsages sent to an rpc is a pair of [reply_channel] and whether
+    or not it is a GET/SET message *)
+  Definition rpc_payload (γ : gname) (s : chan) (m : val): iProp :=
+    ∃ (w : option val) (r : chan) (old_v : val),
+      (⌜m = (#r, option_to_val w)%V⌝ ∗ ghost_var γ (1/2) old_v).
+
+  (* For a reference that is a server, the invariant also keeps track
+    of what is stored in reply channel *)
+  Definition reply_inv (γ : gname) (r : chan) (old_v : val) (w : option val): iProp :=
+    (* There exists some reply channel that stores sent messages *)
+    ∃ Mr, r ↦ Mr ∗
+            [∗ mset] msg_v ∈ Mr, ∃ new_v, ghost_var γ (1/2) new_v ∗
+                                  match w with
+                                  | Some v => ⌜new_v = v ∧ msg_v = #()⌝
+                                  | None => ⌜new_v = old_v ∧ msg_v = new_v⌝ end.
+  Definition srv_payload (γ : gname) (s : chan) (m : val): iProp :=
+    ∃ (w : option val) (r : chan) (old_v : val),
+      (⌜m = (#r, option_to_val w)%V ∧ match w with
+                                      | Some v => old_v = v
+                                      | None => True end⌝ ∗
+        ghost_var γ (1/2) old_v ∗ reply_inv γ r old_v w).
+
+  Definition rpc_inv (γ : gname) (s : chan) := (chan_inv γ s (rpc_payload γ s)).
+  Definition srv_inv (γ : gname) (s : chan) := (chan_inv γ s (srv_payload γ s)).
 
   (* "Client state" *)
-  Definition ref_mapsto (γ : gname) (l : chan) (v : val) : iProp :=
-    ∃ (M : gmultiset val), l ↦ M ∗ ghost_var γ (1/2) v.
+  Definition ref_mapsto (γ : gname) (v : val) : iProp :=
+    ghost_var γ (1/2) v.
 
-  Definition is_ref (γ : gname) (l : chan) : iProp :=
-    inv N (ref_inv γ l).
+  Definition is_rpc (γ : gname) (l : chan) : iProp :=
+    inv N (rpc_inv γ l).
 
-  Global Instance is_ref_persistent γ l : Persistent (is_ref γ l).
+  Definition is_srv (γ : gname) (l : chan) : iProp :=
+    inv N (srv_inv γ l).
+
+  Global Instance is_ref_persistent γ l : Persistent (is_rpc γ l).
+  Proof. apply _. Qed.
+  Global Instance is_srv_persistent γ l : Persistent (is_srv γ l).
+  Proof. apply _. Qed.
+
+  Global Instance ref_mapsto_timeless γ l: Timeless (ref_mapsto γ l).
   Proof. apply _. Qed.
 
   Lemma chan_get_spec (v : val) l γ:
-    is_ref γ l -∗
-    {{{ ref_mapsto γ l v }}} chan_get #l @ ⊤ {{{ RET v ; ref_mapsto γ l v }}}.
+    is_rpc γ l -∗
+    {{{ ref_mapsto γ v }}} chan_get #l @ ⊤ {{{ RET v ; ref_mapsto γ v }}}.
   Proof.
-    iIntros "#Hr !#" (Φ) "Hl HΦ".
+    iIntros "#Hr !# %Φ Hv HΦ".
     wp_lam.
+
     rewrite /rpc.
     wp_pures. wp_apply wp_newch; first done.
     iIntros (rc) "Hrc". (* reply channel *)
     wp_pures.
     wp_bind (chan_lang.Send _ _).
-    awp_apply awp_send.
-    iDestruct "Hl" as (M) "[Hl Hgv]".
-    iAaccIntro with "Hl".
-    { iFrame. iIntros. iModIntro. iExists _. done. }
-    iIntros "Hl' !>". wp_pures.
-    awp_apply awp_recv.
-    iAaccIntro with "Hrc".
-    { eauto with iFrame. }
-    iIntros (w) "[? %IN]". set_solver.
+    iDestruct "Hv" as "Hv".
+
+    iMod (inv_alloc N _ (reply_inv γ rc v None) with "[Hrc]") as "#Hinv".
+    { iExists _. iFrame. rewrite big_sepMS_empty. done. }
+
+    iInv "Hr" as (M) "[>Hl >Hm]".
+    wp_apply (wp_send with "Hl").
+    iIntros "Hl !>".
+    iSplitL "Hv Hm Hl".
+    { iNext. iExists _. iSplitL "Hl"; first done.
+      rewrite comm. rewrite big_sepMS_insert.
+      iFrame. iExists None, _, _. iSplit; auto.
+    }
+    wp_pures.
+
+    wp_pures.
+    unfold recv.
+    wp_pures.
+    iLöb as "IH".
+    wp_bind (chan_lang.TryRecv _).
+    clear M.
+    iInv "Hinv" as (Mr) "[>Hrc >Hm]".
+
+    wp_apply (wp_tryrecv with "Hrc").
+    iIntros (new_val) "Hrc".
+    iDestruct "Hrc" as "[Hrc | Hrc]".
+    - iModIntro.
+      iDestruct "Hrc" as (new_val_v) "(-> & Hrc & %HIn)".
+      rewrite big_sepMS_delete; eauto.
+      iDestruct "Hm" as "[Hnew Hdel]".
+      iSplitL "Hrc Hdel".
+      { iNext. iExists _. iFrame. }
+      iDestruct "Hnew" as (new_v) "[Hgv %Eq]".
+      destruct Eq as (-> & ->).
+      wp_pures. iModIntro. iApply "HΦ". done.
+    - iModIntro.
+      iDestruct "Hrc" as "(-> & Hrc)".
+      iSplitL "Hm Hrc".
+      { iNext.
+        iExists _. iFrame. rewrite big_sepMS_empty. done.
+      }
+      wp_pures. iApply ("IH" with "HΦ").
   Qed.
 
   Lemma chan_set_spec (v : val) γ l:
-    is_ref γ l -∗
-    {{{ ∀ w, ref_mapsto γ l w }}} chan_set #l v @ ⊤ {{{ RET #() ; ref_mapsto γ l v }}}.
+    is_rpc γ l -∗
+    {{{ ∀ w, ref_mapsto γ w }}} chan_set #l v @ ⊤ {{{ RET #() ; ref_mapsto γ v }}}.
   Proof.
-    iIntros "#Hr !#" (Φ) "Hl HΦ".
-    wp_lam. rewrite /rpc.
+    iIntros "#Hr !# %Φ Hv HΦ".
+    wp_lam.
+
+    rewrite /rpc.
     wp_pures. wp_apply wp_newch; first done.
-    iIntros (rc) "Hrc". wp_pures.
+    iIntros (rc) "Hrc". (* reply channel *)
+    wp_pures.
     wp_bind (chan_lang.Send _ _).
-    iDestruct ("Hl" $! NONEV) as (M) "[Hl Hgv]".
+    iDestruct "Hv" as "Hv".
+
+    iMod (inv_alloc N _ (reply_inv γ rc v (Some v)) with "[Hrc]") as "#Hinv".
+    { iExists _. iFrame. rewrite big_sepMS_empty. done. }
+
+    iInv "Hr" as (M) "[>Hl >Hm]".
     wp_apply (wp_send with "Hl").
-    iIntros "Hl'". wp_pures.
-    awp_apply awp_recv.
-    iAaccIntro with "Hrc".
-    { eauto with iFrame. }
-    iIntros (w) "[? %IN]". set_solver.
+    iIntros "Hl !>".
+    iSplitL "Hv Hm Hl".
+    { iNext. iExists _. iSplitL "Hl"; first done.
+      rewrite comm. rewrite big_sepMS_insert.
+      iFrame. iExists (Some v), _, _. iSplit; auto.
+    }
+    wp_pures.
+
+    wp_pures.
+    unfold recv.
+    wp_pures.
+    iLöb as "IH".
+    wp_bind (chan_lang.TryRecv _).
+    clear M.
+    iInv "Hinv" as (Mr) "[>Hrc >Hm]".
+
+    wp_apply (wp_tryrecv with "Hrc").
+    iIntros (new_val) "Hrc".
+    iDestruct "Hrc" as "[Hrc | Hrc]".
+    - iModIntro.
+      iDestruct "Hrc" as (new_val_v) "(-> & Hrc & %HIn)".
+      rewrite big_sepMS_delete; eauto.
+      iDestruct "Hm" as "[Hnew Hdel]".
+      iSplitL "Hrc Hdel".
+      { iNext. iExists _. iFrame. }
+      iDestruct "Hnew" as (new_v) "[Hgv %Eq]".
+      destruct Eq as (-> & ->).
+      wp_pures. iModIntro. iApply "HΦ". done.
+    - iModIntro.
+      iDestruct "Hrc" as "(-> & Hrc)".
+      iSplitL "Hm Hrc".
+      { iNext.
+        iExists _. iFrame. rewrite big_sepMS_empty. done.
+      }
+      wp_pures. iApply ("IH" with "HΦ").
+    Unshelve. eauto.
   Qed.
 
   Local Lemma chan_srv_spec (l : loc) (v : val) γ:
-    is_ref γ l -∗
+    is_srv γ l -∗
     {{{ ghost_var γ (1/2) v }}} srv #l v @ ⊤ {{{ RET #(); False }}}.
   Proof.
     (* Note : % moves things to the Coq context *)
-    iIntros "#Hr !# %Φ Hl HΦ".
+    iIntros "#Hr !# %Φ Hv● HΦ".
     wp_lam.
     wp_pures.
     iLöb as "IH" forall (v).
 
     awp_apply awp_recv.
-    iInv "Hr" as (M) "[>Hl' >HM]".
-    iAaccIntro with "Hl'".
+    iInv "Hr" as (M) "[>Hl >HM]".
+    iAaccIntro with "Hl".
     { iFrame. iIntros. iModIntro. iNext.
-      rewrite /ref_inv. iExists M. iFrame. }
+      rewrite /rpc_inv. iExists M. iFrame. }
     iIntros (w) "Hup".
     iModIntro.
     iDestruct "Hup" as "[Hlup %Hw]".
@@ -191,46 +287,58 @@ Section proof.
     iSplitL "HMset Hlup".
 
     {(* Re-establish [ref_inv] for channel [l]. *)
-      iNext. rewrite /ref_inv.
+      iNext. rewrite /rpc_inv.
       iExists (M ∖ {[+ w +]}). iFrame. }
 
     wp_pures.
-    iDestruct "HM" as (w0 r) "[%Hweq [Hw HMr]]".
+    iDestruct "HM" as (w0 r old_v) "[%Hweq [Hv◯ Hrc]]".
+    destruct Hweq as (-> & Hweq).
     subst.
     wp_pures.
 
     destruct w0 eqn: Hw0; wp_match.
-    { wp_pures. wp_bind (Send _ _).
-      iDestruct "Hw" as (v1) "[[%Heq Hw]|%Heq]"; last done.
-      inversion Heq; subst.
-      iDestruct "HMr" as (Mr) "HMr".
-      wp_apply (wp_send with "HMr").
+    { wp_pures.
+
+      wp_bind (Send _ _).
+
+      iDestruct "Hrc" as (Mr) "[Hrc HM]".
+      wp_apply (wp_send with "Hrc").
+
       iIntros "Hrm".
       wp_pures.
-      iApply ("IH" $! v1 with "Hw HΦ").
+      subst.
+      iDestruct (ghost_var_agree with "Hv● Hv◯") as %->. simpl in *.
+      iApply ("IH" $! v0 with "Hv●"); try done.
     }
     { wp_pures. wp_bind (Send _ _).
-      iDestruct "Hw" as (v1) "[[%Heq Hw]|%Heq]"; first done.
-      inversion Heq; subst.
-      iDestruct "HMr" as (Mr) "HMr".
-      wp_apply (wp_send with "HMr").
+
+      iDestruct "Hrc" as (Mr) "[Hrc HM]".
+      wp_apply (wp_send with "Hrc").
+
       iIntros "Hrm".
       wp_pures.
-      iApply ("IH" $! v with "Hl HΦ").
+
+      iDestruct (ghost_var_agree with "Hv● Hv◯") as %->. simpl in *.
+      iApply ("IH" $! old_v with "Hv●"); try done.
     }
   Qed.
 
-  Lemma chan_ref_spec (v : val) :
-    {{{ True }}} chan_ref v {{{ l γ, RET LitV (LitLoc l); ref_inv γ l }}}.
+  Lemma chan_ref_spec (γ : gname) (v : val):
+    {{{ ref_mapsto γ v }}} chan_ref v {{{ l, RET LitV (LitLoc l); is_srv γ l }}}.
   Proof.
-    iIntros (Φ) "_ HΦ".
+    iIntros (Φ) "Hv HΦ".
     wp_lam.
     wp_apply wp_newch; first done.
     iIntros (l) "Hl". wp_pures.
-    iMod (own_alloc (Excl ())) as (γ) "Hγ"; first done.
-    (* iMod (inv_alloc N _ (ref_inv γ l ∅ True) with "[-HΦ]") as "#Hinv". *)
-    (* { iIntros "!>". rewrite /ref_inv. iSplit. 2 : { iSplit; done. } *)
-    (*   iIntros (Φ'). iModIntro. iIntros "_ H". *)
-  Admitted.
+
+    iMod (inv_alloc N _ (srv_inv γ l) with "[Hl]") as "#Hinv".
+    { iNext. iExists _; iFrame. rewrite big_sepMS_empty. done. }
+    wp_apply (wp_fork with "[Hv]"); cycle 1.
+    {
+      wp_seq. iModIntro. iApply "HΦ". iApply "Hinv".
+    }
+    iNext. wp_apply (chan_srv_spec with "[] [Hv]"); eauto.
+  Qed.
 
 End proof.
+Typeclasses Opaque is_srv is_rpc ref_mapsto.
