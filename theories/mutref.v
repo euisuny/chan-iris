@@ -3,9 +3,7 @@ From iris.algebra Require Import excl.
 From iris.proofmode Require Import tactics.
 From iris.base_logic Require Import lib.ghost_var lib.invariants.
 From iris.program_logic Require Export atomic weakestpre.
-From chanlang Require Import
-     locations class_instances lang proofmode notation
-     network_ra tactics primitive_laws localchan.
+From chanlang Require Import proofmode localchan.
 From iris.prelude Require Import options.
 
 (* See [Stack Item 4 : Mutable references] *)
