@@ -353,7 +353,7 @@ Proof.
 Qed.
 
 (* [h] is added on the right here to make [state_init_heap_singleton] true. *)
-Notation NONE := (InjL (Val (LitV LitUnit))) (only parsing).
+Notation NONE := (InjL (LitV LitUnit)) (only parsing).
 Notation NONEV := (InjLV (LitV LitUnit)) (only parsing).
 Notation SOME x := (InjR x) (only parsing).
 Notation SOMEV x := (InjRV x) (only parsing).
@@ -396,13 +396,13 @@ Inductive head_step : expr → state → list observation → expr → state →
   | TryRecvNoneS σ c:
       σ.(chan) !! c = Some $ empty ->
       head_step (TryRecv (Val $ LitV $ LitLoc c)) σ
-                [] NONE σ []
+                [] (Val $ InjLV $ LitV LitUnit) σ []
   | TryRecvSomeS σ c M v:
       v ∈ M ->
       σ.(chan) !! c = Some $ M ->
       head_step (TryRecv (Val $ LitV $ LitLoc c)) σ
-                []
-                (SOME (Val v)) (state_upd_chan <[c := M∖{[+ v +]}]> σ)
+                [] (Val $ InjRV v)
+                (state_upd_chan <[c := M∖{[+ v +]}]> σ)
                 [].
 
 (** Basic properties about the language *)
