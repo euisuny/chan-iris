@@ -1,7 +1,6 @@
 (* An atomic heap defined over the channel primitives in the language. *)
 From iris.algebra Require Import excl.
-From iris.proofmode Require Import
-     tactics coq_tactics reduction spec_patterns environments.
+From iris.proofmode Require Import tactics.
 From iris.base_logic Require Import lib.ghost_var lib.invariants.
 From iris.program_logic Require Export atomic weakestpre.
 From chanlang Require Import
@@ -38,8 +37,6 @@ Class mut_ref {Σ} `{!chanGS Σ} := MutRef {
   (*         RET (v, #if decide (v = v1) then TRUE else FALSE) >>>; *)
 }.
 Global Arguments mut_ref _ {_}.
-
-Definition expr := chan_lang.expr.
 
 (* Figure 16 *)
 Definition srv : val :=
@@ -108,7 +105,7 @@ Section inv.
     rewrite /recv.
     wp_rec.
     iLöb as "IH".
-    wp_bind (chan_lang.TryRecv _).
+    wp_bind (TryRecv _).
     iInv "Hr" as (M) "[>Hs HM]" "Hclose".
     wp_apply (wp_tryrecv with "Hs").
     iIntros (new_v) "Hnew".
@@ -219,7 +216,7 @@ Section proof.
     wp_apply (newch_spec N (get_R γ v)); first done.
     iIntros (s) "#Hs".
     wp_pures.
-    wp_bind (chan_lang.Send _ _).
+    wp_bind (Send _ _).
     wp_apply (send_spec with "[] [Hv]"); first done.
     { iExists _, _, _. iSplit.
       - iPureIntro. Unshelve.
@@ -251,7 +248,7 @@ Section proof.
     wp_apply (newch_spec N (set_R γ v)); first done.
     iIntros (s) "#Hs".
     wp_pures.
-    wp_bind (chan_lang.Send _ _).
+    wp_bind (Send _ _).
     wp_apply (send_spec with "[] [Hv]"); first done.
     { iExists (Some v), s, w. iSplit.
       - iPureIntro. simpl. reflexivity.
@@ -311,7 +308,7 @@ Section proof.
     wp_apply (newch_spec N (ref_R γ)); first done.
 
     iIntros (s) "#Hs". wp_pures.
-    wp_bind (chan_lang.Fork _).
+    wp_bind (Fork _).
     iInv "Hs" as (M) "Hf".
     wp_apply (wp_fork with "[Hv Hs Hγ●]"); cycle 1.
     {

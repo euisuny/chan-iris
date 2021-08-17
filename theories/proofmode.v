@@ -1,8 +1,8 @@
 From iris.proofmode Require Import coq_tactics reduction spec_patterns.
 From iris.proofmode Require Export tactics.
 From iris.program_logic Require Import atomic weakestpre.
-From chanlang Require Import
-     class_instances lang notation network_ra tactics primitive_laws.
+From chanlang Require Export primitive_laws network_ra locations.
+From chanlang Require Import class_instances.
 From iris.prelude Require Import options.
 
 Import uPred.

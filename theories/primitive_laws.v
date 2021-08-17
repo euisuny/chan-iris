@@ -1,7 +1,9 @@
 From iris.proofmode Require Import tactics.
 From iris.base_logic.lib Require Import invariants gen_inv_heap.
-From iris.program_logic Require Export ectx_lifting total_ectx_lifting weakestpre.
-From chanlang Require Import lang notation network_ra tactics locations.
+From iris.program_logic Require Export weakestpre total_weakestpre.
+From iris.program_logic Require Import ectx_lifting total_ectx_lifting.
+From chanlang Require Export lang notation tactics.
+From chanlang Require Import network_ra locations.
 From iris Require Import options.
 
 (* Ghost state for reasoning about chan_lang threadpool. *)
