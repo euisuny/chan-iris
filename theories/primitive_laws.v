@@ -75,8 +75,8 @@ Section proof.
           exists (v' ∖ {[+ x +]}). exists x.
           multiset_solver. }
         destruct H0 as (? & ? & ?).
-        eexists _, _, _. cbn. rewrite H0 in H. eapply TryRecvSomeS; eauto.
-        Unshelve. 2 : exact x0. set_solver.
+        eexists _, _, _. cbn. rewrite H0 in H. eapply TryRecvSomeS with (v := x0); eauto.
+        set_solver.
     - iIntros (κ v2 σ2 efs Hstep); inv_head_step.
       + iModIntro; iSplit=> //. iFrame. iSplit.
         * iPureIntro; eauto.
@@ -117,8 +117,8 @@ Section proof.
       destruct H0 as (? & ? & ?).
       rewrite H0 in H. eauto.
       eexists _, _, _. cbn.
-      eapply TryRecvSomeS; eauto.
-      Unshelve. 2 : exact x0. set_solver.
+      eapply TryRecvSomeS with (v := x0); eauto.
+      set_solver.
     - iIntros (κ v2 σ2 efs Hstep); inv_head_step.
       iMod (gen_network_update with "Hσ Pre") as "[Hσ Hl]".
       iModIntro; iSplit=> //. iSplit; first by done.

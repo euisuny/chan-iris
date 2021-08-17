@@ -221,10 +221,8 @@ Section proof.
     wp_pures.
     wp_bind (chan_lang.Send _ _).
     wp_apply (send_spec with "[] [Hv]"); first done.
-    { iExists _, _, _. iSplit.
-      - iPureIntro. Unshelve.
-        2 : exact None. 2 : exact s. 2 : exact v.
-        simpl. reflexivity.
+    { iExists None, s, v. iSplit.
+      - iPureIntro; reflexivity.
       - iSplitL ""; done. }
     iIntros "_".
     wp_pures.
