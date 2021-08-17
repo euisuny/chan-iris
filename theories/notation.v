@@ -21,9 +21,9 @@ Notation LamV x e := (RecV BAnon x e) (only parsing).
 Notation LetCtx x e2 := (AppRCtx (LamV x e2)) (only parsing).
 Notation SeqCtx e2 := (LetCtx BAnon e2) (only parsing).
 Notation Match e0 x1 e1 x2 e2 := (Case e0 (Lam x1 e1) (Lam x2 e2)) (only parsing).
-(* Notation Alloc e := (AllocN (Val $ LitV $ LitInt 1) e) (only parsing). *)
-(** Compare-and-set (CAS) returns just a boolean indicating success or failure. *)
-(* Notation CAS l e1 e2 := (Snd (CmpXchg l e1 e2)) (only parsing). *)
+Notation tryrecv e := (TryRecv (LitV $ LitLoc e%E)) (only parsing).
+Notation send c m := (Send (LitV $ LitLoc c%E) (Val $ m)) (only parsing).
+Notation fork e := (Fork (LitV $ LitLoc e%E)) (only parsing).
 
 (* Skip should be atomic, we sometimes open invariants around
    it. Hence, we need to explicitly use LamV instead of e.g., Seq. *)
@@ -126,14 +126,3 @@ Notation "'match:' e0 'with' 'SOME' x => e2 | 'NONE' => e1 'end'" :=
   (Match e0 BAnon e1 x%binder e2)
   (e0, e1, x, e2 at level 200, only parsing) : expr_scope.
 
-Notation TryRecv e := (TryRecv e) (only parsing).
-Notation "'tryrecv' e" := (TryRecv (LitV $ LitLoc e%E)) (at level 10) : expr_scope.
-Notation NewCh := (NewCh) (only parsing).
-Notation "'newch'" := (NewCh) (at level 10) : expr_scope.
-Notation Send c m := (Send c m) (only parsing).
-Notation "'send' ( c , v )" := (Send (LitV $ LitLoc c%E) (Val $ v)) (at level 10) : expr_scope.
-Notation Fork e := (Fork e) (only parsing).
-Notation "'fork' e" := (Fork (LitV $ LitLoc e%E)) (at level 10) : expr_scope.
-
-Notation "'TRUE'" := (LitBool Datatypes.true) : val_scope.
-Notation "'FALSE'" := (LitBool Datatypes.false) : val_scope.

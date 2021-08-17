@@ -58,11 +58,11 @@ Tactic Notation "wp_send" :=
   | _ => fail "wp_store: not a 'wp'"
   end.
 
-Lemma tac_wp_expr_eval `{!chanG Σ} Δ s E Φ e e' :
+Lemma tac_wp_expr_eval `{!chanGS Σ} Δ s E Φ e e' :
   (∀ (e'':=e'), e = e'') →
   envs_entails Δ (WP e' @ s; E {{ Φ }}) → envs_entails Δ (WP e @ s; E {{ Φ }}).
 Proof. by intros ->. Qed.
-Lemma tac_twp_expr_eval `{!chanG Σ} Δ s E Φ e e' :
+Lemma tac_twp_expr_eval `{!chanGS Σ} Δ s E Φ e e' :
   (∀ (e'':=e'), e = e'') →
   envs_entails Δ (WP e' @ s; E [{ Φ }]) → envs_entails Δ (WP e @ s; E [{ Φ }]).
 Proof. by intros ->. Qed.
@@ -80,14 +80,14 @@ Tactic Notation "wp_expr_eval" tactic3(t) :=
   end.
 Ltac wp_expr_simpl := wp_expr_eval simpl.
 
-Lemma tac_wp_value_nofupd `{!chanG Σ} Δ s E Φ v :
+Lemma tac_wp_value_nofupd `{!chanGS Σ} Δ s E Φ v :
   envs_entails Δ (Φ v) → envs_entails Δ (WP (Val v) @ s; E {{ Φ }}).
 Proof. rewrite envs_entails_eq=> ->. by apply wp_value. Qed.
-Lemma tac_twp_value_nofupd `{!chanG Σ} Δ s E Φ v :
+Lemma tac_twp_value_nofupd `{!chanGS Σ} Δ s E Φ v :
   envs_entails Δ (Φ v) → envs_entails Δ (WP (Val v) @ s; E [{ Φ }]).
 Proof. rewrite envs_entails_eq=> ->. by apply twp_value. Qed.
 
-Lemma tac_wp_pure `{!chanG Σ} Δ Δ' s E K e1 e2 φ n Φ :
+Lemma tac_wp_pure `{!chanGS Σ} Δ Δ' s E K e1 e2 φ n Φ :
   PureExec φ n e1 e2 →
   φ →
   MaybeIntoLaterNEnvs n Δ Δ' →
@@ -99,7 +99,7 @@ Proof.
   pose proof @pure_exec_fill.
   rewrite HΔ' -lifting.wp_pure_step_later //.
 Qed.
-Lemma tac_twp_pure `{!chanG Σ} Δ s E K e1 e2 φ n Φ :
+Lemma tac_twp_pure `{!chanGS Σ} Δ s E K e1 e2 φ n Φ :
   PureExec φ n e1 e2 →
   φ →
   envs_entails Δ (WP (fill K e2) @ s; E [{ Φ }]) →
@@ -111,7 +111,7 @@ Proof.
   rewrite -total_lifting.twp_pure_step //.
 Qed.
 
-Lemma tac_wp_send `{!chanG Σ} Δ Δ' s E i K l m vl Φ :
+Lemma tac_wp_send `{!chanGS Σ} Δ Δ' s E i K l m vl Φ :
   MaybeIntoLaterNEnvs 1 Δ Δ' →
   envs_lookup i Δ' = Some (false, l ↦ vl)%I →
   match envs_simple_replace i false (Esnoc Enil i (l ↦ (vl ⊎ {[+m+]}))) Δ' with
@@ -127,11 +127,11 @@ Proof.
   rewrite right_id. apply later_mono, sep_mono_r, wand_mono; eauto.
 Qed.
 
-Lemma tac_wp_tryrecv_fail `{!chanG Σ} Δ Δ' s E l K Φ M i:
+Lemma tac_wp_tryrecv_fail `{!chanGS Σ} Δ Δ' s E l K Φ M i:
   MaybeIntoLaterNEnvs 1 Δ Δ' →
   envs_lookup i Δ' = Some (false, l ↦ M)%I →
   M = ∅ -> envs_entails Δ' (WP fill K (Val $ NONEV) @ s; E {{ Φ }}) →
-  envs_entails Δ (WP fill K (TryRecv (LitV $ LitLoc l)) @ s; E {{ Φ }}).
+  envs_entails Δ (WP fill K (tryrecv l) @ s; E {{ Φ }}).
 Proof.
   intros H1 H2.
   rewrite envs_entails_eq=> Heq Hfail.
@@ -143,10 +143,10 @@ Proof.
   rewrite Heq. done.
 Qed.
 
-Lemma tac_wp_value `{!chanG Σ} Δ s E (Φ : val → iPropI Σ) v :
+Lemma tac_wp_value `{!chanGS Σ} Δ s E (Φ : val → iPropI Σ) v :
   envs_entails Δ (|={E}=> Φ v) → envs_entails Δ (WP (Val v) @ s; E {{ Φ }}).
 Proof. rewrite envs_entails_eq=> ->. by rewrite wp_value_fupd. Qed.
-Lemma tac_twp_value `{!chanG Σ} Δ s E (Φ : val → iPropI Σ) v :
+Lemma tac_twp_value `{!chanGS Σ} Δ s E (Φ : val → iPropI Σ) v :
   envs_entails Δ (|={E}=> Φ v) → envs_entails Δ (WP (Val v) @ s; E [{ Φ }]).
 Proof. rewrite envs_entails_eq=> ->. by rewrite twp_value_fupd. Qed.
 
@@ -195,12 +195,12 @@ Tactic Notation "wp_pure" open_constr(efoc) :=
   | _ => fail "wp_pure: not a 'wp'"
   end.
 
-Lemma tac_wp_bind `{!chanG Σ} K Δ s E Φ e f :
+Lemma tac_wp_bind `{!chanGS Σ} K Δ s E Φ e f :
   f = (λ e, fill K e) → (* as an eta expanded hypothesis so that we can `simpl` it *)
   envs_entails Δ (WP e @ s; E {{ v, WP f (Val v) @ s; E {{ Φ }} }})%I →
   envs_entails Δ (WP fill K e @ s; E {{ Φ }}).
 Proof. rewrite envs_entails_eq=> -> ->. by apply: wp_bind. Qed.
-Lemma tac_twp_bind `{!chanG Σ} K Δ s E Φ e f :
+Lemma tac_twp_bind `{!chanGS Σ} K Δ s E Φ e f :
   f = (λ e, fill K e) → (* as an eta expanded hypothesis so that we can `simpl` it *)
   envs_entails Δ (WP e @ s; E [{ v, WP f (Val v) @ s; E [{ Φ }] }])%I →
   envs_entails Δ (WP fill K e @ s; E [{ Φ }]).

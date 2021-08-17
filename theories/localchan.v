@@ -19,24 +19,16 @@ Set Default Proof Using "Type".
 
 Section atomic_invariants.
 
-  Context `{!chanG Σ}.
+  Context `{!chanGS Σ}.
 
   Notation iProp := (iProp Σ).
 
   Lemma awp_send (c : loc) (m : val) :
-    ⊢ <<< ∀ M, c ↦ M >>> send(c, m) @ ⊤ <<< c ↦ (M ⊎ {[+m+]}), RET #() >>>.
+    ⊢ <<< ∀ M, c ↦ M >>> send c m @ ⊤ <<< c ↦ (M ⊎ {[+m+]}), RET #() >>>.
   Proof.
     iIntros (Φ) "AU".
     iMod "AU" as (M) "[H↦ [_ Hclose]]".
-    (* TODO: define [wp_send] *)
-    match goal with
-    | |- envs_entails _ (wp ?s ?E ?e ?Q) =>
-        reshape_expr e ltac:(fun K e' => eapply (tac_wp_send _ _ _ _ _ K))
-    end.
-    - iSolveTC.
-    - iAssumptionCore.
-    - pm_reduce; first [wp_finish].
-      iMod ("Hclose" with "H↦") as "HΦ". done.
+    wp_apply (wp_send with "H↦"). done.
   Qed.
 
   (* To start off, let's try defining a blocking receive. *)
@@ -55,7 +47,7 @@ Section atomic_invariants.
   Proof.
     iIntros (Φ) "AU". iLöb as "IH".
     wp_lam.
-    wp_bind (tryrecv _)%E.
+    wp_bind (TryRecv _)%E.
     iMod "AU" as (M) "[Hl Hclose]".
     destruct (decide (M = ∅)) as [[= ->]|Hx].
     - (* Empty set : Returns none. *)

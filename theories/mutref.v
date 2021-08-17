@@ -13,9 +13,9 @@ From iris.prelude Require Import options.
 (* Section 8 : Putting logical atomicity to work *)
 
 Notation val := chan_lang.val.
-(* The {!chanG Σ} refers to the resource algebra available in the context. *)
+(* The {!chanGS Σ} refers to the resource algebra available in the context. *)
 (** A general logically atomic interface for mutable references. *)
-Class mut_ref {Σ} `{!chanG Σ} := MutRef {
+Class mut_ref {Σ} `{!chanGS Σ} := MutRef {
   (* -- operations -- *)
   ref : val;
   get : val;
@@ -61,7 +61,7 @@ Definition srv : val :=
 (* Remote procedure call between a client and a server *)
 Definition rpc : val :=
   λ: "r" "m",
-    let: "d" := newch in
+    let: "d" := NewCh in
     Send "r" ("d", "m");; recv "d".
 
 Definition GET := NONE.
@@ -73,7 +73,7 @@ Definition chan_set : val := λ: "e" "e'", rpc "e" (SET "e'").
 
 Definition chan_ref : val :=
   λ: "e",
-    let: "r" := newch in
+    let: "r" := NewCh in
     Fork (srv "r" "e");; "r".
 
 (* CMRA *)
@@ -88,27 +88,23 @@ Notation chan := loc.
 
 Section inv.
 
-  Context `{!chanG Σ}.
+  Context `{!chanGS Σ}.
   Notation iProp := (iProp Σ).
 
-  (* TODO: idea -- R is a multiset val -> iProp
-    and for the invariant on reply channels, it's an existential statement, not a forall.
-   *)
-  (* TODO: swap [is_chan] and [chan_inv] names *)
-  Local Definition is_chan (s : chan) (R : val -> iProp) : iProp :=
+  Local Definition chan_inv (s : chan) (R : val -> iProp) : iProp :=
     (∃ (Ms : gmultiset val), s ↦ Ms ∗ ([∗ mset] m ∈ Ms, R m)).
 
-  Definition chan_inv N (s : chan) (R : val -> iProp): iProp :=
-    inv N (is_chan s R).
+  Definition is_chan N (s : chan) (R : val -> iProp): iProp :=
+    inv N (chan_inv s R).
 
-  Lemma recv_chan_inv N (srv : chan) (R : val -> iProp):
-    chan_inv N srv R -∗
+  Lemma recv_spec N (srv : chan) (R : val -> iProp):
+    is_chan N srv R -∗
     {{{ True }}} recv #srv {{{ m, RET m; R m }}}.
   Proof.
     iIntros "#Hr !# %Φ _ HΦ".
-    (* TODO: use [awp_recv], might need to weaken R with later modality *)
-    (* awp_apply awp_recv. *)
-    (* iInv "Hr" as (M) "[>Hs HM]". *)
+    (* IY: using [awp_recv] does not work here, even when introducing a later
+       modality on the postcondition "R" *)
+
     rewrite /recv.
     wp_rec.
     iLöb as "IH".
@@ -130,8 +126,8 @@ Section inv.
       wp_pures. iApply "IH"; done.
   Qed.
 
-  Lemma send_chan_inv N (s : chan) (R : val -> iProp) (m : val):
-    chan_inv N s R -∗
+  Lemma send_spec N (s : chan) (R : val -> iProp) (m : val):
+    is_chan N s R -∗
     {{{ R m }}} Send #s m {{{ RET #(); True }}}.
   Proof.
     iIntros "#Hr !# %Φ Hm HΦ".
@@ -144,15 +140,14 @@ Section inv.
     iModIntro. iApply "HΦ"; done.
   Qed.
 
-  (* TODO: make [newch] a non-keyword notation *)
-  Lemma new_chan_inv N (R : val -> iProp):
-    {{{ True }}} NewCh {{{ (s : chan), RET #s; chan_inv N s R }}}.
+  Lemma newch_spec N (R : val -> iProp):
+    {{{ True }}} NewCh {{{ (s : chan), RET #s; is_chan N s R }}}.
   Proof.
     iIntros "%Φ _ HΦ".
     iApply wp_fupd.
     wp_apply wp_newch; first done.
     iIntros (l) "Hl".
-    iMod (inv_alloc N _ (is_chan l R) with "[Hl]") as "#Hinv".
+    iMod (inv_alloc N _ (chan_inv l R) with "[Hl]") as "#Hinv".
     { iNext. iExists _. iFrame. rewrite big_sepMS_empty. done. }
     iModIntro. iApply "HΦ". done.
   Qed.
@@ -161,7 +156,7 @@ End inv.
 
 Section proof.
 
-  Context `{!chanG Σ, !refG Σ}.
+  Context `{!chanGS Σ, !refG Σ}.
   Notation iProp := (iProp Σ).
 
   Let N := nroot .@ "mutref".
@@ -188,7 +183,7 @@ Section proof.
   Definition request_payload (γ : gname) (m : val): iProp :=
     ∃ (req : option val) (r : chan) (old_v : val),
       (⌜m = (#r, option_to_val req)%V⌝ ∗
-        chan_inv N r (reply_payload γ old_v req) ∗
+        is_chan N r (reply_payload γ old_v req) ∗
       (* match req with *)
       (* | Some v => ghost_var γ (1/2) v *)
       (* | None => *)
@@ -201,7 +196,7 @@ Section proof.
     ghost_var γ (1/2) v.
 
   Definition is_ref (γ : gname) (l : chan) : iProp :=
-    chan_inv N l (request_payload γ).
+    is_chan N l (request_payload γ).
 
   Global Instance is_ref_persistent γ l : Persistent (is_ref γ l).
   Proof. apply _. Qed.
@@ -219,14 +214,13 @@ Section proof.
     rewrite /rpc.
     wp_pures.
 
-    Local Definition get_R γ v (x : val): iProp :=
-      reply_payload γ v None x.
+    set (get_R := fun γ v x => reply_payload γ v None x).
 
-    wp_apply (new_chan_inv N (get_R γ v)); first done.
+    wp_apply (newch_spec N (get_R γ v)); first done.
     iIntros (s) "#Hs".
     wp_pures.
     wp_bind (chan_lang.Send _ _).
-    wp_apply (send_chan_inv with "[] [Hv]"); first done.
+    wp_apply (send_spec with "[] [Hv]"); first done.
     { iExists _, _, _. iSplit.
       - iPureIntro. Unshelve.
         2 : exact None. 2 : exact s. 2 : exact v.
@@ -235,7 +229,7 @@ Section proof.
     iIntros "_".
     wp_pures.
 
-    wp_apply recv_chan_inv; try done.
+    wp_apply recv_spec ; try done.
     iIntros (m) "HR".
     unfold get_R.
     iDestruct "HR" as (->) "Hgv".
@@ -252,22 +246,20 @@ Section proof.
     rewrite /rpc.
     wp_pures.
 
-    (* TODO :use [set] tactic *)
-    Local Definition set_R γ v (x : val): iProp :=
-      reply_payload γ v (Some v) x.
+    set (set_R := fun γ v x => reply_payload γ v (Some v) x).
 
-    wp_apply (new_chan_inv N (set_R γ v)); first done.
+    wp_apply (newch_spec N (set_R γ v)); first done.
     iIntros (s) "#Hs".
     wp_pures.
     wp_bind (chan_lang.Send _ _).
-    wp_apply (send_chan_inv with "[] [Hv]"); first done.
+    wp_apply (send_spec with "[] [Hv]"); first done.
     { iExists (Some v), s, w. iSplit.
       - iPureIntro. simpl. reflexivity.
       - iSplitL ""; done. }
     iIntros "_".
     wp_pures.
 
-    wp_apply recv_chan_inv; try done.
+    wp_apply recv_spec; try done.
     iIntros (m) "[%H HR]". subst.
     iApply "HΦ". done.
   Qed.
@@ -281,7 +273,7 @@ Section proof.
     wp_pures.
     iLöb as "IH" forall (v).
 
-    wp_apply recv_chan_inv; try done.
+    wp_apply recv_spec; try done.
     iIntros (msg) "HR".
     iDestruct "HR" as (req rc old_v) "[%Eq [#HR Hv◯]]".
 
@@ -290,14 +282,14 @@ Section proof.
     destruct req eqn: Hreq; simpl; wp_pures.
     {
       iMod (ghost_var_update_halves v0 with "Hv● Hv◯") as "[Hv● Hv◯]".
-      wp_apply (send_chan_inv with "HR [Hv◯]"); try done.
+      wp_apply (send_spec with "HR [Hv◯]"); try done.
       { iFrame. done. }
 
       iIntros "_".
       wp_pures.
       iApply ("IH" $! v0 with "Hv●"); try done. }
     {
-      wp_apply (send_chan_inv with "HR [Hv◯]"); try done.
+      wp_apply (send_spec with "HR [Hv◯]"); try done.
       { iFrame. done. }
 
       iIntros "_".
@@ -312,12 +304,11 @@ Section proof.
     iIntros (Φ) "Hv HΦ".
     wp_lam.
 
-    Local Definition ref_R γ (x : val): iProp :=
-      request_payload γ x.
+    set (ref_R := fun γ x => request_payload γ x).
 
     iMod (ghost_var_alloc v) as (γ) "[Hγ● Hγ◯]".
 
-    wp_apply (new_chan_inv N (ref_R γ)); first done.
+    wp_apply (newch_spec N (ref_R γ)); first done.
 
     iIntros (s) "#Hs". wp_pures.
     wp_bind (chan_lang.Fork _).

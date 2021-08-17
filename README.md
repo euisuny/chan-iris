@@ -18,7 +18,6 @@ receive, and fork operations.
 - [mutref.v] : mutable references implemented using channel primitives
 
 ## TODO
-- mutable references on top of channels
 - channels on top of mutable references
 
 ## References

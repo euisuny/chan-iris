@@ -5,18 +5,15 @@ From chanlang Require Import lang notation network_ra tactics locations.
 From iris Require Import options.
 
 (* Ghost state for reasoning about chan_lang threadpool. *)
-(* TODO: rename to [chanGS] for singleton, need to show preGS (look at
-  [adequacy.v] in heaplang) *)
-Class chanG Σ :=
-  ChanG {
-      chan_invG : invGS Σ;
-      chan_gen_networkG :> gen_networkGS loc (gmultiset val) Σ;
-      chan_inv_heapG :> inv_heapGS loc (gmultiset val) Σ;
-    }.
+Class chanGS Σ := ChanGS {
+  chan_invGS : invGS Σ;
+  chan_gen_networkGS :> gen_networkGS loc (gmultiset val) Σ;
+  chan_inv_heapGS :> inv_heapGS loc (gmultiset val) Σ;
+}.
 
-Global Instance chan_irisG `{!chanG Σ} : irisGS chan_lang Σ :=
+Global Instance chan_irisG `{!chanGS Σ} : irisGS chan_lang Σ :=
   {
-  iris_invG := chan_invG;
+  iris_invG := chan_invGS;
   state_interp σ _ κs _ := (gen_network_interp σ.(chan))%I;
   fork_post _ := True%I;
   num_laters_per_step _ := 0;
@@ -24,7 +21,7 @@ Global Instance chan_irisG `{!chanG Σ} : irisGS chan_lang Σ :=
 }.
 
 Section definitions.
-  Context `{!chanG Σ}.
+  Context `{!chanGS Σ}.
 
   Definition inv_mapsto_own (l : loc) (v : gmultiset val) (I : gmultiset val → Prop) : iProp Σ :=
     inv_mapsto_own l v I.
@@ -34,7 +31,7 @@ End definitions.
 
 Section proof.
 
-  Context `{!chanG Σ}.
+  Context `{!chanGS Σ}.
 
   Notation iProp := (iProp Σ).
 
@@ -42,7 +39,7 @@ Section proof.
 
   (* Figure 11. Derived rules for language primitives *)
   Definition wp_newch s E:
-    {{{ true }}} newch @ s; E {{{ l, RET LitV (LitLoc l); l ↦ ∅ }}}.
+    {{{ true }}} NewCh @ s; E {{{ l, RET LitV (LitLoc l); l ↦ ∅ }}}.
   Proof.
     iIntros (Φ) "Pre Post".
     iApply wp_lift_atomic_head_step; [done|].
@@ -166,7 +163,7 @@ Section proof.
   Qed.
 
   Lemma twp_send (c : loc) (M : gmultiset chan_lang.val) (m : chan_lang.val) s E:
-    [[{ c ↦ M }]] send(c, m) @ s; E
+    [[{ c ↦ M }]] send c m @ s; E
     [[{ RET #(); c ↦ (M ⊎ {[+m+]}) }]].
   Proof.
     iIntros (Φ) "Pre Post".
@@ -180,7 +177,7 @@ Section proof.
 
   Lemma wp_send (c : loc) (M : gmultiset chan_lang.val) (m : chan_lang.val) s E:
     {{{ ▷ c ↦ M }}}
-      send(c, m) @ s; E
+      send c m @ s; E
     {{{ RET #(); c ↦ (M ⊎ {[+m+]}) }}}.
   Proof.
     iIntros (Φ) ">H HΦ". iApply (twp_wp_step with "HΦ").
@@ -188,7 +185,8 @@ Section proof.
   Qed.
 
   Lemma wp_fork s E e Φ :
-    ▷ WP e @ s; ⊤ {{ _, True }} -∗ ▷ Φ (LitV LitUnit) -∗ WP Fork e @ s; E {{ Φ }}.
+    ▷ WP e @ s; ⊤ {{ _, True }} -∗
+        ▷ Φ (LitV LitUnit) -∗ WP (Fork e) @ s; E {{ Φ }}.
   Proof.
     iIntros "He HΦ". iApply wp_lift_atomic_head_step; [done|].
     iIntros (σ1 ns κ κs nt) "Hσ !>"; iSplit; first by eauto with head_step.
