@@ -24,7 +24,7 @@ Section atomic_invariants.
   Notation iProp := (iProp Σ).
 
   Lemma awp_send (c : loc) (m : val) :
-    ⊢ <<< ∀ M, c ↦ M >>> send c m @ ⊤ <<< c ↦ (M ⊎ {[+m+]}), RET #() >>>.
+    ⊢ <<< ∀ M, c ↦ M >>> send c m @ ∅ <<< c ↦ (M ⊎ {[+m+]}), RET #() >>>.
   Proof.
     iIntros (Φ) "AU".
     iMod "AU" as (M) "[H↦ [_ Hclose]]".
@@ -42,7 +42,7 @@ Section atomic_invariants.
 
   Lemma awp_recv (c : loc):
     ⊢ <<< ∀ (M : gmultiset val), c ↦ M >>>
-        recv (LitV $ LitLoc $ c) @ ⊤
+        recv (LitV $ LitLoc $ c) @ ∅
       <<< ∃ m, c ↦ (M ∖ {[+m+]}) ∧ ⌜m ∈ M⌝, RET m >>>.
   Proof.
     iIntros (Φ) "AU". iLöb as "IH".

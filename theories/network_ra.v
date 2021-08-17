@@ -4,9 +4,6 @@ From iris.bi.lib Require Import fractional.
 From iris.proofmode Require Import tactics.
 From iris.base_logic.lib Require Export own.
 From iris.prelude Require Import options.
-From iris.base_logic.lib Require Export wsat.
-
-Import invGS.
 
 Class gen_networkGpreS (L V : Type) (Σ : gFunctors) `{Countable L} := {
   gen_networkGpreS_inG :> inG Σ (gmap_viewR L (leibnizO V));

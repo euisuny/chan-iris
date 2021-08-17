@@ -1,12 +1,9 @@
 (* An atomic heap defined over the channel primitives in the language. *)
 From iris.algebra Require Import excl.
-From iris.proofmode Require Import
-     tactics coq_tactics reduction spec_patterns environments.
+From iris.proofmode Require Import tactics.
 From iris.base_logic Require Import lib.ghost_var lib.invariants.
 From iris.program_logic Require Export atomic weakestpre.
-From chanlang Require Import
-     locations class_instances lang proofmode notation
-     network_ra tactics primitive_laws localchan.
+From chanlang Require Import proofmode localchan.
 From iris.prelude Require Import options.
 
 (* See [Stack Item 4 : Mutable references] *)
@@ -38,8 +35,6 @@ Class mut_ref {Σ} `{!chanGS Σ} := MutRef {
   (*         RET (v, #if decide (v = v1) then TRUE else FALSE) >>>; *)
 }.
 Global Arguments mut_ref _ {_}.
-
-Definition expr := chan_lang.expr.
 
 (* Figure 16 *)
 Definition srv : val :=
@@ -97,33 +92,27 @@ Section inv.
   Definition is_chan N (s : chan) (R : val -> iProp): iProp :=
     inv N (chan_inv s R).
 
+  (* Enable [eauto] to prove [chan_inv]. *)
+  Local Hint Extern 0 (environments.envs_entails _ (chan_inv _ _)) => unfold chan_inv : core.
+
   Lemma recv_spec N (srv : chan) (R : val -> iProp):
     is_chan N srv R -∗
-    {{{ True }}} recv #srv {{{ m, RET m; R m }}}.
+    {{{ True }}} recv #srv {{{ m, RET m; ▷ R m }}}.
   Proof.
     iIntros "#Hr !# %Φ _ HΦ".
-    (* IY: using [awp_recv] does not work here, even when introducing a later
-       modality on the postcondition "R" *)
-
-    rewrite /recv.
-    wp_rec.
-    iLöb as "IH".
-    wp_bind (chan_lang.TryRecv _).
-    iInv "Hr" as (M) "[>Hs HM]" "Hclose".
-    wp_apply (wp_tryrecv with "Hs").
-    iIntros (new_v) "Hnew".
-    iDestruct "Hnew" as "[[%v (%Hnew & Hs & %Hv)] | (%Hnew & Hs)]";
-      subst.
-    - rewrite big_sepMS_delete; eauto.
-      iDestruct "HM" as "[HR HM]".
-      iMod ("Hclose" with "[Hs HM]").
-      { iNext. iExists _. iSplitL "Hs"; done. }
-      iModIntro. wp_pures. iModIntro. iApply "HΦ"; done.
-    - iMod ("Hclose" with "[Hs HM]").
-      { iNext. iExists _. iSplitL "Hs"; first done.
-        rewrite big_sepMS_empty; done. }
-      iModIntro.
-      wp_pures. iApply "IH"; done.
+    iApply (wp_step_fupd _ _ ⊤ with "[HΦ]"); first done.
+    { do 3 iModIntro. iAccu. }
+    awp_apply awp_recv.
+    iInv "Hr" as (M) "[>Hs HM]".
+    iAaccIntro with "Hs".
+    { eauto 10 with iFrame. }
+    iIntros (new_v) "[Hs %Hnew_v]".
+    iModIntro.
+    rewrite (big_sepMS_delete _ _ new_v); last done.
+    iDestruct "HM" as "[HR HM]".
+    iSplitL "HM Hs".
+    { eauto 10 with iFrame. }
+    iIntros "HΦ". iApply "HΦ". done.
   Qed.
 
   Lemma send_spec N (s : chan) (R : val -> iProp) (m : val):
@@ -219,7 +208,7 @@ Section proof.
     wp_apply (newch_spec N (get_R γ v)); first done.
     iIntros (s) "#Hs".
     wp_pures.
-    wp_bind (chan_lang.Send _ _).
+    wp_bind (Send _ _).
     wp_apply (send_spec with "[] [Hv]"); first done.
     { iExists None, s, v. iSplit.
       - iPureIntro; reflexivity.
@@ -227,10 +216,13 @@ Section proof.
     iIntros "_".
     wp_pures.
 
+    (* Make sure we still have a fupd after applying [recv_spec]. *)
+    iApply wp_fupd.
+
     wp_apply recv_spec ; try done.
     iIntros (m) "HR".
-    unfold get_R.
-    iDestruct "HR" as (->) "Hgv".
+    unfold get_R. simpl.
+    iDestruct "HR" as ">[-> Hgv]".
     iApply "HΦ". done.
   Qed.
 
@@ -249,7 +241,7 @@ Section proof.
     wp_apply (newch_spec N (set_R γ v)); first done.
     iIntros (s) "#Hs".
     wp_pures.
-    wp_bind (chan_lang.Send _ _).
+    wp_bind (Send _ _).
     wp_apply (send_spec with "[] [Hv]"); first done.
     { iExists (Some v), s, w. iSplit.
       - iPureIntro. simpl. reflexivity.
@@ -257,8 +249,10 @@ Section proof.
     iIntros "_".
     wp_pures.
 
+    iApply wp_fupd.
     wp_apply recv_spec; try done.
-    iIntros (m) "[%H HR]". subst.
+    rewrite /set_R /=.
+    iIntros (m) ">[%H HR]". subst.
     iApply "HΦ". done.
   Qed.
 
@@ -273,7 +267,7 @@ Section proof.
 
     wp_apply recv_spec; try done.
     iIntros (msg) "HR".
-    iDestruct "HR" as (req rc old_v) "[%Eq [#HR Hv◯]]".
+    iDestruct "HR" as (req rc old_v) "[>%Eq [#HR >Hv◯]]".
 
     iDestruct (ghost_var_agree with "Hv● Hv◯") as %<-.
     subst; wp_pures.
@@ -309,7 +303,7 @@ Section proof.
     wp_apply (newch_spec N (ref_R γ)); first done.
 
     iIntros (s) "#Hs". wp_pures.
-    wp_bind (chan_lang.Fork _).
+    wp_bind (Fork _).
     iInv "Hs" as (M) "Hf".
     wp_apply (wp_fork with "[Hv Hs Hγ●]"); cycle 1.
     {

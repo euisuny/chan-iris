@@ -114,11 +114,6 @@ Notation "e1 ;; e2" := (Lam BAnon e2%E e1%E)
    format "'[' '[hv' '[' e1 ']' ;;  ']' '/' e2 ']'") : expr_scope.
 
 (** Notations for option *)
-Notation NONE := (InjL (LitV LitUnit)) (only parsing).
-Notation NONEV := (InjLV (LitV LitUnit)) (only parsing).
-Notation SOME x := (InjR x) (only parsing).
-Notation SOMEV x := (InjRV x) (only parsing).
-
 Notation "'match:' e0 'with' 'NONE' => e1 | 'SOME' x => e2 'end'" :=
   (Match e0 BAnon e1 x%binder e2)
   (e0, e1, x, e2 at level 200, only parsing) : expr_scope.
